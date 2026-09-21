@@ -19,7 +19,7 @@ import { FileTypeIcon, IconRefreshOutline16, Menu, Tooltip, classifyFileType } f
 import { pathPartsOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { TextInjected } from './face.ts'
 import { failureLine } from './failure-line.ts'
-import { IconNowrapFill16, IconWrapFill16 } from './icons.tsx'
+import { IconDownloadOutline16, IconNowrapFill16, IconWrapFill16 } from './icons.tsx'
 import { LoadingIndicator } from './LoadingIndicator.tsx'
 import { hostFileOf } from './rpc.ts'
 import type { TextStore } from './store.ts'
@@ -72,6 +72,21 @@ function HeaderPath({ pathRef, pathTextRef, path }: {
       </span>
     </div>
   )
+}
+
+/** Build the browser download URL for one session-scoped workspace file. */
+function downloadUrlOf(sessionId: string, path: string): string {
+  return `/api/workspace.download?sessionId=${encodeURIComponent(sessionId)}&path=${encodeURIComponent(path)}`
+}
+
+/** Trigger a browser download by navigating to the signed route; the browser sends its own cookies. */
+function triggerDownload(url: string): void {
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = ''
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
 }
 
 /** Private registration inputs; the framework binds the registry source to useDocumentPreviews. */
@@ -198,15 +213,36 @@ export function TextPreview({
   // fallback, no viewer control, only the path and the unsupported line.
   if (selected === undefined && unviewable) {
     const { name: unsupportedName } = pathPartsOf(displayPath)
+    const downloadUrl = downloadUrlOf(file.sessionId, file.path)
     return (
       <div className={css.preview} data-textpreview-state="unsupported" data-textpreview-url={tab.contentId}>
         <div className={css.header}>
           <HeaderPath pathRef={pathRef} pathTextRef={pathTextRef} path={displayPath} />
+          <Tooltip label={t('download')} side="bottom" delayMs={500}>
+            <button
+              type="button"
+              className={css.tool}
+              aria-label={t('download')}
+              data-textpreview-tool="download"
+              onClick={() => { triggerDownload(downloadUrl) }}
+            >
+              <IconDownloadOutline16 />
+            </button>
+          </Tooltip>
         </div>
         <div className={css.body} data-textpreview-body>
           <div className={css.empty} data-textpreview-unsupported>
             <FileTypeIcon kind={classifyFileType(unsupportedName)} size={36} className={css.emptyIcon} />
             <p className={css.emptyLine}>{t('unsupportedFile')}</p>
+            <button
+              type="button"
+              className={css.retry}
+              data-textpreview-download
+              onClick={() => { triggerDownload(downloadUrl) }}
+            >
+              <IconDownloadOutline16 size={14} />
+              {t('download')}
+            </button>
           </div>
         </div>
       </div>
@@ -313,6 +349,17 @@ export function TextPreview({
             onClick={reload}
           >
             <IconRefreshOutline16 />
+          </button>
+        </Tooltip>
+        <Tooltip label={t('download')} side="bottom" delayMs={500}>
+          <button
+            type="button"
+            className={css.tool}
+            aria-label={t('download')}
+            data-textpreview-tool="download"
+            onClick={() => { triggerDownload(downloadUrlOf(file.sessionId, file.path)) }}
+          >
+            <IconDownloadOutline16 />
           </button>
         </Tooltip>
       </div>

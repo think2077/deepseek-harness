@@ -41,3 +41,30 @@ export const IconWrapFill16 = ({ size = 16, className }: IconProps) => (
     />
   </svg>
 )
+
+/** A tray with a downward arrow: save the current file to disk. */
+export const IconDownloadOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 3V14M12 14L8 10M12 14L16 10"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M4 17V19M20 17V19M4 19H20"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)

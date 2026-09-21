@@ -22,6 +22,7 @@
 import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import type {} from '@deepseek-ai/dsh-fs'
 import type { FsDirEntry, FsInfo, FsPathInfo, FsTarget } from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
@@ -42,6 +43,21 @@ import type {
 } from './types.ts'
 
 export type * from './types.ts'
+
+/** Browser-facing download path for workspace files. */
+export const WORKSPACE_DOWNLOAD_PATH = '/api/workspace.download'
+
+/** Minimal shape of the host `connection` service used to register a download route. */
+interface WorkspaceDownloadConnection {
+  readonly fetch: {
+    register(route: {
+      readonly path: string
+      readonly methods: readonly ('GET' | 'HEAD')[]
+      readonly requestBody: 'buffered'
+      readonly fetch: (request: Request) => Promise<Response>
+    }): () => Promise<void>
+  }
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -214,6 +230,66 @@ export class WorkspaceFiles extends TypertRemoteService {
           return {
             sessionId,
             workspaceRoot: header.cwd ?? scope.sandboxPolicy.workspaceRoot,
+          }
+        },
+      })
+    })
+    // Register the browser-facing file download route. The path query is a
+    // workspace-relative or absolute path; the sessionId query resolves the
+    // workspace root, and locateFile confines the result to it.
+    ctx.inject(['connection'], (connectionScope) => {
+      const connection = Reflect.get(connectionScope, 'connection') as WorkspaceDownloadConnection
+      connection.fetch.register({
+        path: WORKSPACE_DOWNLOAD_PATH,
+        methods: ['GET', 'HEAD'],
+        requestBody: 'buffered',
+        fetch: async (request) => {
+          const url = new URL(request.url)
+          const sessionIdValue = url.searchParams.get('sessionId')
+          const pathValue = url.searchParams.get('path')
+          if (sessionIdValue === null || sessionIdValue === '' || pathValue === null || pathValue === '') {
+            return new Response('missing sessionId or path query parameter', { status: 400 })
+          }
+          const sessionId = brandString<SessionId>(sessionIdValue)
+          const live = connectionScope.sessions.get(sessionId)?.header
+          const stored = live === undefined
+            ? await connectionScope.get('sessionPersistence')?.stat(sessionId)
+            : undefined
+          const header = live ?? stored?.header
+          if (header === undefined) {
+            return new Response('session not found', { status: 404 })
+          }
+          const scope: WorkspaceFileScope = {
+            sessionId,
+            workspaceRoot: header.cwd ?? connectionScope.sandboxPolicy.workspaceRoot,
+          }
+          try {
+            const { target, info } = await this.locateFile(scope, pathValue, request.signal)
+            const size = info.size ?? 0
+            const data = await this.ctx.fs.readByteRange(target, { offset: 0, length: size + 1 }, request.signal)
+            if (data.length > size) {
+              return new Response('file changed during read', { status: 500 })
+            }
+            const rawName = pathValue.split('/').pop() ?? 'download'
+            const encodedName = encodeURIComponent(rawName)
+            const contentDisposition = `attachment; filename="download"; filename*=UTF-8''${encodedName}`
+            const headers: Record<string, string> = {
+              'content-type': 'application/octet-stream',
+              'content-disposition': contentDisposition,
+            }
+            if (info.size !== undefined) headers['content-length'] = String(info.size)
+            if (request.method === 'HEAD') {
+              return new Response(null, { status: 200, headers })
+            }
+            return new Response(Buffer.from(data), { status: 200, headers })
+          } catch (error: unknown) {
+            if (error instanceof RemoteError) {
+              if (error.code === 'workspace-file/not-found') return new Response('not found', { status: 404 })
+              if (error.code === 'workspace-file/not-regular-file') return new Response('not a regular file', { status: 400 })
+              if (error.code === 'workspace-file/outside-workspace') return new Response('forbidden', { status: 403 })
+              if (error.code === 'workspace-file/too-large') return new Response('file too large', { status: 413 })
+            }
+            return new Response('internal error', { status: 500 })
           }
         },
       })
