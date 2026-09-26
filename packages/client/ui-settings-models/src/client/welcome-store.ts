@@ -43,10 +43,10 @@ function assertNever(_value: never): never {
 export class WelcomeNoticeStore {
   /** uSES-safe state source shared by the registered welcome step. */
   readonly store: SnapshotStore<WelcomeNoticeState> = createSnapshotStore<WelcomeNoticeState>({
-    status: 'idle', acknowledged: false, error: null,
+    status: 'idle', acknowledged: true, error: null,
   })
 
-  private localAcknowledged = false
+  private localAcknowledged = true
   private saving = false
   private following: (() => void) | undefined
 

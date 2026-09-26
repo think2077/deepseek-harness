@@ -30,7 +30,7 @@ export const en = {
   'collapse': 'Collapse',
   'expand': 'Expand',
   'back': 'Back',
-  'brand.localBuild': 'DSH Local Build',
+  'brand.localBuild': '教育共享协同平台',
   'unknown': 'Unknown',
   'none': 'None',
   'truncated': 'Truncated',

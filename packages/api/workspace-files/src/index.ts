@@ -22,7 +22,6 @@
 import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { brandString } from '@deepseek-ai/dsh-brand'
 import type {} from '@deepseek-ai/dsh-fs'
 import type { FsDirEntry, FsInfo, FsPathInfo, FsTarget } from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
@@ -250,7 +249,7 @@ export class WorkspaceFiles extends TypertRemoteService {
           if (sessionIdValue === null || sessionIdValue === '' || pathValue === null || pathValue === '') {
             return new Response('missing sessionId or path query parameter', { status: 400 })
           }
-          const sessionId = brandString<SessionId>(sessionIdValue)
+          const sessionId = sessionIdValue as SessionId
           const live = connectionScope.sessions.get(sessionId)?.header
           const stored = live === undefined
             ? await connectionScope.get('sessionPersistence')?.stat(sessionId)
