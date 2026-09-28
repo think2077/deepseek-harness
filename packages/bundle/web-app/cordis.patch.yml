@@ -338,6 +338,9 @@
     - id: ui-agent-preset
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
+
+    - id: ui-knowledge-base
+      name: '@deepseek-ai/dsh-client-ui-knowledge-base'
     # Plugin configuration: the host-plane sections a user owns, as expandable
     # cards. A namespace this deployment does not expose renders nothing.
     - id: ui-settings-plugins
@@ -486,6 +489,27 @@
 # composition. This row only names the default and any deployment-added
 # `roots`; no launcher patching is involved.
 - insert:
+    - id: knowledge-base
+      name: '@deepseek-ai/dsh-knowledge-base'
+      config:
+        projectKnowledgeDirectory: 知识库
+        roots:
+          - id: public
+            label: 公共知识库
+            path: ~/.dsh/.agent-presets/solution-expert/公共知识库
+            kind: public
+            writable: true
+          - id: solution
+            label: 方案专属知识库
+            path: ~/.dsh/.agent-presets/solution-expert/方案专属知识库
+            kind: solution
+            writable: true
+          - id: candidate
+            label: 候选知识库
+            path: ~/.dsh/.agent-presets/solution-expert/候选知识库
+            kind: candidate
+            writable: false
+
     - id: agent-presets
       name: '@deepseek-ai/dsh-agent-presets'
       config:

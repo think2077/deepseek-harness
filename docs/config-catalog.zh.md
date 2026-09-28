@@ -296,7 +296,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/api/workspace-files/src/index.ts:69`](../packages/api/workspace-files/src/index.ts)
+来源：[`packages/api/workspace-files/src/index.ts:84`](../packages/api/workspace-files/src/index.ts)
 
 <a id="deepseek-aidsh-attachment-local"></a>
 
@@ -1093,6 +1093,38 @@ export interface Config {
 ```
 
 来源：[`packages/jobs/jobs-local/src/index.ts:31`](../packages/jobs/jobs-local/src/index.ts)
+
+<a id="deepseek-aidsh-knowledge-base"></a>
+
+## `@deepseek-ai/dsh-knowledge-base`
+
+需要： `workspaceRegistry`
+
+```ts config-catalog
+/** Knowledge-base roots. */
+export interface Config {
+  /** Deployment-owned public, solution-specific, candidate, or fixed project roots. */
+  readonly roots: readonly KnowledgeRootConfig[]
+  /** Directory below each registered Workspace exposed as read-only project knowledge. */
+  readonly projectKnowledgeDirectory: string
+}
+
+/** One deployment-configured knowledge root. */
+export interface KnowledgeRootConfig {
+  /** Stable root id used in entry ids. The `project-` prefix is reserved. */
+  readonly id: string
+  /** User-visible collection label. */
+  readonly label: string
+  /** Host directory; a leading `~` resolves through the harness home-path helper. */
+  readonly path: string
+  /** Knowledge ownership category. */
+  readonly kind: 'public' | 'solution' | 'candidate' | 'project'
+  /** Whether existing files may be replaced; project roots always resolve to false. */
+  readonly writable: boolean
+}
+```
+
+来源：[`packages/preset/knowledge-base/src/index.ts:41`](../packages/preset/knowledge-base/src/index.ts)
 
 <a id="deepseek-aidsh-llm-deepseek"></a>
 
@@ -3602,6 +3634,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-agent-preset`（[`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-approval`（[`packages/client/ui-approval/src/index.ts`](../packages/client/ui-approval/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-attachment`（[`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-brand-hailiang`（[`packages/client/ui-brand-hailiang/src/index.ts`](../packages/client/ui-brand-hailiang/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-brand-official`（[`packages/client/ui-brand-official/src/index.ts`](../packages/client/ui-brand-official/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-chat`（[`packages/client/ui-chat/src/index.ts`](../packages/client/ui-chat/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-commands`（[`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts)）
@@ -3613,6 +3646,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-goal`（[`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-input-trigger`（[`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-jobs`（[`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-knowledge-base`（[`packages/client/ui-knowledge-base/src/index.ts`](../packages/client/ui-knowledge-base/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-layout`（[`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-message-feedback`（[`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-model-selection`（[`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts)）

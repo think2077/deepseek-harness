@@ -127,6 +127,8 @@ describe('sidebar global panels', () => {
 
     const { alpha, beta } = await mountPanels(runtime, locale)
     const navigation = await view.findByRole('navigation', { name: 'Global panels' })
+    const newSession = view.getAllByRole('button', { name: 'New session' }).at(-1)!
+    expect(navigation.compareDocumentPosition(newSession) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(within(navigation).getAllByRole('button')).toHaveLength(2)
     fireEvent.click(within(navigation).getByRole('button', { name: 'Alpha panel' }))
     expect(view.getByRole('heading', { name: 'Alpha content' })).toBeTruthy()
