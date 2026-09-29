@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This browser plugin adds **Knowledge base** as a global sidebar row above **New Session** and opens a full-size main panel. The **Knowledge base** tab presents public, solution-specific, and candidate roots in one file tree; the separate **Project information** tab contains Workspace material. Selecting a file opens its preview or editor directly. Writable roots support Markdown creation, editing, and recoverable removal, while candidate and project files are read-only in the shipped Web composition. Mutations retain local state on revision conflicts instead of overwriting or removing a newer file.
+This browser plugin adds **My reviews** and **Knowledge base** as global sidebar rows above **New Session**, each with a full-size main panel. **My reviews** shows extracted candidate cards by pending, accepted, and rejected state. Each card presents one readable knowledge suggestion; technical evidence remains stored but hidden. A reviewer can edit that suggestion, reject it with confirmation, or select a destination and request a smart insert, append, replace, or skip proposal before acceptance. **Knowledge base** keeps public, solution-specific, candidate, and Workspace files in separate tree views. Revision conflicts preserve local state instead of overwriting changed files.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This browser plugin adds **Knowledge base** as a global sidebar row above **New 
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount the package in a Web composition that provides the layout and sidebar shells, locale and slot services, the shared Remote client, and the Host `knowledgeBase` namespace. The plugin has no browser configuration. Choose **Knowledge base** in the sidebar, filter the tree, then select a file. Markdown entries render a formatted preview and writable entries expose an edit tab. **Add entry** creates a Markdown file; **Remove** requires inline confirmation and moves the file to recoverable Host trash.
+Mount the package in a Web composition that provides the layout and sidebar shells, locale and slot services, session controller, shared Remote client, and Host `knowledgeBase` namespace. The plugin has no browser configuration. Choose **My reviews** to process candidate cards. Acceptance prefills a root and path from `suggested_destination`; **Generate smart merge suggestion** uses the current live session to compare the candidate with the latest destination, then displays the proposed operation, target section, explanation, and complete resulting Markdown. The final action stays disabled until that preparation completes, and the reviewer may edit the result before confirmation. Choose **Knowledge base** to browse or maintain files directly.
 
 -----
 
@@ -37,7 +37,7 @@ Mount the package in a Web composition that provides the layout and sidebar shel
 
 `KnowledgeBaseController` owns the catalog, selected document, draft, mutation status, and conflict notice in a snapshot store. The panel loads on mount and invokes only injected operations. After a successful create or save, the controller refreshes the catalog and keeps the returned document selected with its new revision. Removal refreshes the catalog and clears the detail pane when it removed the selected file. A conflict keeps the draft or current selection unchanged.
 
-The plugin registers a `sidebar.panellist` row and a matching `main` keyed panel under `knowledge-base`. Every visible string belongs to the Chinese and English dictionaries.
+The plugin registers `sidebar.panellist` rows and matching `main` keyed panels under `knowledge-review` and `knowledge-base`. `KnowledgeReviewController` carries candidate and destination revisions to the Host and reloads all three card states after a mutation. Every visible string belongs to the Chinese and English dictionaries.
 
 ### Source map
 
@@ -45,7 +45,9 @@ The plugin registers a `sidebar.panellist` row and a matching `main` keyed panel
 |---|---|
 | [`src/client/index.ts`](src/client/index.ts) | Locale, sidebar row, and main-panel registration |
 | [`src/client/store.ts`](src/client/store.ts) | Catalog, selection, draft, and revision-fenced mutation controller |
+| [`src/client/review-store.ts`](src/client/review-store.ts) | Candidate review state and revision-fenced transitions |
 | [`src/client/KnowledgeBaseSection.tsx`](src/client/KnowledgeBaseSection.tsx) | Scoped knowledge tree, creation form, preview, editor, and removal confirmation |
+| [`src/client/KnowledgeReviewSection.tsx`](src/client/KnowledgeReviewSection.tsx) | Candidate cards, edit and rejection controls, and acceptance merge confirmation |
 | [`src/client/locales.ts`](src/client/locales.ts) | Chinese and English UI copy |
 
 </details>
@@ -65,11 +67,11 @@ The plugin registers a `sidebar.panellist` row and a matching `main` keyed panel
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as the package is a browser-side management page that registers nothing model-facing.
+The browser itself registers no model-visible content. Requesting a smart merge calls the Host operation documented by `dsh-knowledge-base`; that operation creates the logged child model request.
 
 #### KV Cache effect
 
-None; this package neither assembles nor sends a provider request.
+The browser adds no prompt prefix. See the Host package for the per-request child-session cache effect.
 
 ## Known Limitations and Deferred Work
 
@@ -82,6 +84,7 @@ These limits match the Host's first management phase.
 - **Trash cannot be restored in the UI** — recovery currently requires moving the file back from the Host root's hidden trash directory.
 - **External changes require a manual reload** — the page has no filesystem invalidation subscription.
 - **Conflict recovery is manual** — the page preserves the draft but does not merge it with the newer file.
+- **Smart merge requires a live compatible session** — a reviewer must open a session carrying the configured merge skill before requesting a suggestion.
 
 <a id="dev-note"></a>
 ### Dev Note

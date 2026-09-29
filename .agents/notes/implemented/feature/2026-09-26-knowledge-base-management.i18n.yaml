@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-26-knowledge-base-management.md
-2026-09-26-knowledge-base-management.md: 9519503a906d6db2cd783f577b16054a73771d30
-2026-09-26-knowledge-base-management.zh.md: 4e883f8d874045d38b5c91c318f607b79483b6a1
+2026-09-26-knowledge-base-management.md: 0900a7b58dcd52c379805979c307dc19c16a06be
+2026-09-26-knowledge-base-management.zh.md: c4345f71ca7b1dc5715fc38384e57ed0e0050ee7

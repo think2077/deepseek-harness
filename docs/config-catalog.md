@@ -1096,7 +1096,7 @@ Source: [`packages/jobs/jobs-local/src/index.ts:31`](../packages/jobs/jobs-local
 
 ## `@deepseek-ai/dsh-knowledge-base`
 
-Requires: `workspaceRegistry`
+Requires: `workspaceRegistry` · `subagents`
 
 ```ts config-catalog
 /** Knowledge-base roots. */
@@ -1105,6 +1105,8 @@ export interface Config {
   readonly roots: readonly KnowledgeRootConfig[]
   /** Directory below each registered Workspace exposed as read-only project knowledge. */
   readonly projectKnowledgeDirectory: string
+  /** Candidate-review directories below one configured candidate root. */
+  readonly review?: KnowledgeReviewConfig
 }
 
 /** One deployment-configured knowledge root. */
@@ -1120,9 +1122,27 @@ export interface KnowledgeRootConfig {
   /** Whether existing files may be replaced; project roots always resolve to false. */
   readonly writable: boolean
 }
+
+/** Candidate-review storage layout. */
+export interface KnowledgeReviewConfig {
+  /** Configured candidate root that owns every review directory. */
+  readonly candidateRootId: string
+  /** Child directory containing cards available for review. */
+  readonly pendingDirectory: string
+  /** Child directory receiving cards after confirmed acceptance. */
+  readonly acceptedDirectory: string
+  /** Child directory receiving cards after confirmed rejection. */
+  readonly rejectedDirectory: string
+  /** Plain filenames under the review directories that are not candidate cards. */
+  readonly ignoredFiles: readonly string[]
+  /** One-shot subagent provider used to generate review suggestions. */
+  readonly mergeProvider?: string
+  /** Skill explicitly invoked by the merge-suggestion child. */
+  readonly mergeSkill?: string
+}
 ```
 
-Source: [`packages/preset/knowledge-base/src/index.ts:41`](../packages/preset/knowledge-base/src/index.ts)
+Source: [`packages/preset/knowledge-base/src/index.ts:49`](../packages/preset/knowledge-base/src/index.ts)
 
 <a id="deepseek-aidsh-llm-deepseek"></a>
 

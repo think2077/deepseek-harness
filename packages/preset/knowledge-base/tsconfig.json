@@ -6,6 +6,9 @@
     { "path": "../../../vendor/cordis" },
     { "path": "../../../vendor/schemastery" },
     { "path": "../../typert/protocol" },
+    { "path": "../../core/agent" },
+    { "path": "../../subagent/subagent" },
+    { "path": "../../core/tools" },
     { "path": "../../workspace/workspace" },
     { "path": "../../util/atomic-write" },
     { "path": "../../util/home-paths" }

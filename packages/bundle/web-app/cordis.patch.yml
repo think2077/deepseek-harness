@@ -493,6 +493,15 @@
       name: '@deepseek-ai/dsh-knowledge-base'
       config:
         projectKnowledgeDirectory: 知识库
+        review:
+          candidateRootId: candidate
+          pendingDirectory: 待审核
+          acceptedDirectory: 已采纳
+          rejectedDirectory: 已拒绝
+          ignoredFiles:
+            - 候选知识卡模板.yml
+          mergeProvider: spawn
+          mergeSkill: knowledge-merge
         roots:
           - id: public
             label: 公共知识库
