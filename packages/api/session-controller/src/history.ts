@@ -402,7 +402,23 @@ function paginate(
       }
     }
     if (count >= maxMessages) {
-      cut = SessionLogOffset(groupStart)
+      // Align the window boundary at the enclosing turn's start, not at the
+      // oldest included message itself. The message's own `turn/start` and the
+      // `tool/call` + `tool/result` events that precede it belong to the same
+      // turn. Cutting at the message seq leaves turn-scoped ConversationNodes
+      // (delivered files, tool calls, trajectory steps) without either their
+      // start event or their updates, so the oldest turn in a cold-open window
+      // renders empty until the user clicks "load earlier". When no enclosing
+      // turn/start precedes the group (session head, or a compacted prefix),
+      // fall back to the message-aligned groupStart.
+      let boundary = groupStart
+      for (let j = groupStart - 1; j >= 0; j--) {
+        if ((events[j] as SessionEvent).type === 'turn/start') {
+          boundary = (events[j] as SessionEvent).seq
+          break
+        }
+      }
+      cut = SessionLogOffset(boundary)
       break
     }
   }

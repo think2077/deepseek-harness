@@ -748,6 +748,7 @@ describe('Session history raw journal', () => {
     session.append('turn/start', { turn: 1 })
     const first = appendUserText(session, 'first prompt')
     appendAssistantText(session, 'first reply', 1)
+    session.append('turn/start', { turn: 2 })
     const third = appendUserText(session, 'second prompt')
     appendAssistantText(session, 'second reply', 2)
     const shadowed = [...session.surface.nodes]
@@ -792,15 +793,15 @@ describe('Session history raw journal', () => {
     const summaryIndex = page.findIndex(event => event.seq === summary.seq)
     expect(summaryIndex).toBeGreaterThan(-1)
     expect(page[summaryIndex + 1]?.seq).toBe(summary.seq + 1)
-    expect(page.map(event => event.seq)).toEqual(page.map((_event, index) => third.seq + index))
+    expect(page.map(event => event.seq)).toEqual(page.map((_event, index) => third.seq - 1 + index))
   })
 
   it('paginates a message with a large embedded stream without expanding physical records', async () => {
     const { ctx } = await harness()
     const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
     const session = ctx.sessions.create(undefined, { meta: { cwd: '/workspace' } })
-    session.append('turn/start', { turn: 1 })
-    session.append('step/start', { turn: 1, step: 1 })
+    const turnStart = session.append('turn/start', { turn: 1 })
+    const stepStart = session.append('step/start', { turn: 1, step: 1 })
     const texts = Array.from({ length: 128 }, () => 'x')
     const message = session.append('assistant/message', {
       turn: 1,
@@ -825,9 +826,9 @@ describe('Session history raw journal', () => {
         maxMessages: 1,
       })
       if (!response.ok) throw new Error('unreachable')
-      expect(pageEvents(response.value).map(event => event.seq)).toEqual([message.seq])
-      expect(response.value.records).toEqual([{ type: 'event', event: message }])
-      expect(response.value.hasMore).toBe(true)
+      expect(pageEvents(response.value).map(event => event.seq)).toEqual([turnStart.seq, stepStart.seq, message.seq])
+      expect(response.value.records.map(record => record.event.seq)).toEqual([turnStart.seq, stepStart.seq, message.seq])
+      expect(response.value.hasMore).toBe(false)
     } finally {
       min.mockRestore()
     }

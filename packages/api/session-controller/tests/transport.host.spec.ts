@@ -715,12 +715,12 @@ describe('SessionHistoryController', () => {
       address: { kind: 'session', sessionId: session.id }, throughSeq: replacement.seq, maxMessages: 2,
     }, signal())
     expect(page.records.map(entry => entry.event.seq))
-      .toEqual([3, 4, 5, replacement.seq])
-    expect(page.hasMore).toBe(true)
+      .toEqual([0, 1, 2, 3, 4, 5, replacement.seq])
+    expect(page.hasMore).toBe(false)
     const before = await transport.page({
       address: { kind: 'session', sessionId: session.id }, throughSeq: replacement.seq, beforeSeq: 3, maxMessages: 1,
     }, signal())
-    expect(before.records.map(entry => entry.event.seq)).toEqual([2])
+    expect(before.records.map(entry => entry.event.seq)).toEqual([0, 1, 2])
   })
 
   it('keeps cited source events in the page that owns their appended message', async () => {
