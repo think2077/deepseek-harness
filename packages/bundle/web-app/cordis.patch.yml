@@ -339,6 +339,8 @@
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
 
+    - id: ui-workbench
+      name: '@deepseek-ai/dsh-client-ui-workbench'
     - id: ui-knowledge-base
       name: '@deepseek-ai/dsh-client-ui-knowledge-base'
     # Plugin configuration: the host-plane sections a user owns, as expandable

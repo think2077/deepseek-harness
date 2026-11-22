@@ -1,0 +1,21 @@
+.page { height: 100%; overflow: auto; box-sizing: border-box; padding: 36px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base); }
+.page h1 { margin: 8px 0; font-size: 28px; }
+.page h2 { font-size: 18px; margin: 28px 0 16px; }
+.page p { color: var(--dsw-alias-label-secondary); line-height: 1.7; }
+.eyebrow, .number { color: var(--dsw-alias-label-secondary); font-size: 12px; letter-spacing: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 28px; }
+.page button { font: inherit; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 10px 16px; color: inherit; background: var(--dsw-alias-bg-base); cursor: pointer; }
+.page button[aria-pressed='true'], .available { background: var(--dsw-alias-bg-layer-1); }
+.legend { margin-left: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; padding: 0; list-style: none; }
+.card { border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 20px 16px; display: flex; flex-direction: column; }
+.card h3 { font-size: 16px; margin-bottom: 0; }
+.card p { font-size: 13px; flex: 1; }
+.card button { text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.card button span { font-size: 12px; }
+.card .available { border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-bg-layer-1); }
+.card .pending { cursor: default; color: var(--dsw-alias-label-tertiary); }
+.support span { display: inline-block; padding: 12px 16px; margin: 0 10px 10px 0; border-radius: 10px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
+.preview { position: sticky; bottom: 0; padding: 24px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); }
+@media (max-width: 1200px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .page { padding: 20px; } .grid { grid-template-columns: 1fr; } .legend { width: 100%; } }
