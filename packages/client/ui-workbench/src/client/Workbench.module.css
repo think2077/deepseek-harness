@@ -19,3 +19,7 @@
 .preview { position: sticky; bottom: 0; padding: 24px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); }
 @media (max-width: 1200px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .page { padding: 20px; } .grid { grid-template-columns: 1fr; } .legend { width: 100%; } }
+.workspaceList { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.workspaceList button { display: flex; flex-direction: column; gap: 6px; text-align: start; }
+.workspaceList span { font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.page button:disabled { cursor: default; opacity: .6; }
