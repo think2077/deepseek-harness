@@ -48,8 +48,14 @@ async function boot() {
   await ctx.loader.create({ name: 'cordis:include', config: { path: new URL('./fixtures/cordis.yml', import.meta.url).href } })
   await ctx.loader.await()
   const entry = ctx.slots.entries('main').find(item => item.options.key === 'workbench')!
-  const injected = entry.inject!() as { startSolution: (id: WorkspaceId) => Promise<void> }
-  return { ctx, create, select, open, start: () => injected.startSolution('project-a' as WorkspaceId), cancel: () => { navigation.abort() } }
+  const injected = entry.inject!() as {
+    startAssistant: (id: WorkspaceId, presetId: string) => Promise<void>
+  }
+  return {
+    ctx, create, select, open,
+    start: (presetId = 'solution-expert') => injected.startAssistant('project-a' as WorkspaceId, presetId),
+    cancel: () => { navigation.abort() },
+  }
 }
 
 it('registers localized navigation and creates a new session for every launch', async () => {
@@ -73,6 +79,13 @@ it('registers localized navigation and creates a new session for every launch', 
   await app.ctx.fiber.dispose()
   expect(slots.entries('main')).toHaveLength(0)
   expect(slots.entries('sidebar.panellist')).toHaveLength(0)
+})
+
+it('selects the preset requested by an assistant', async () => {
+  const app = await boot()
+  await app.start('business-expert')
+  expect(app.select).toHaveBeenCalledWith('new-1', 'business-expert')
+  expect(app.open).toHaveBeenCalledWith('new-1')
 })
 
 it('does not navigate when preset selection fails', async () => {

@@ -9,19 +9,21 @@ import type {} from '../src/client/index.ts'
 afterEach(cleanup)
 const workspace = { workspaceId: 'project-a', title: 'Project A', path: '/projects/a', sessionIds: ['existing'] }
 function mount(options: { current?: string; items?: typeof workspace[]; start?: () => Promise<void> } = {}) {
-  const startSolution = vi.fn(options.start ?? (async () => {}))
+  const startAssistant = vi.fn(options.start ?? (async () => {}))
   render(<Workbench {...({
-    t: (key: WorkbenchLocaleKey) => en[key], startSolution,
+    t: (key: WorkbenchLocaleKey) => en[key], startAssistant,
     useSessions: (select: (state: unknown) => unknown) => select({ current: options.current }),
     useWorkspaces: (select: (state: unknown) => unknown) => select({ items: options.items ?? [workspace], phase: 'ready', state: 'idle' }),
   } as unknown as ComponentProps<typeof Workbench>)} />)
-  return startSolution
+  return startAssistant
 }
 
 it('keeps future tools disabled, filters stages and previews project preparation', () => {
   mount()
   expect(screen.getAllByRole('listitem')).toHaveLength(10)
   expect(screen.getByRole('button', { name: /Market scanning/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('button', { name: /^Sales assistant/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('button', { name: /^Reception assistant/ }).hasAttribute('disabled')).toBe(false)
   fireEvent.click(screen.getByRole('button', { name: /^Project preparation assistant/ }))
   expect(screen.getByRole('dialog').textContent).toContain(en.mock)
   fireEvent.click(screen.getByRole('button', { name: en.close }))
@@ -35,6 +37,7 @@ it('keeps future tools disabled, filters stages and previews project preparation
   expect(screen.getAllByRole('listitem')).toHaveLength(10)
   expect(zh.node2Tool).toBe('行前方案')
   expect(zh.node5Tool).toBe('项目筹备助手')
+  expect(zh.node1ReceptionTool).toBe('接待助手')
 })
 
 it('asks for a workspace before starting when there is no current project', async () => {
@@ -43,13 +46,13 @@ it('asks for a workspace before starting when there is no current project', asyn
   expect(start).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog', { name: en.chooseWorkspace })).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: /Project A/ }))
-  await waitFor(() => { expect(start).toHaveBeenCalledWith('project-a') })
+  await waitFor(() => { expect(start).toHaveBeenCalledWith('project-a', 'solution-expert') })
 })
 
 it('uses the current session workspace, without choosing the most recent project', async () => {
   const start = mount({ current: 'existing' })
   fireEvent.click(screen.getByRole('button', { name: /^Pre-visit plan/ }))
-  await waitFor(() => { expect(start).toHaveBeenCalledWith('project-a') })
+  await waitFor(() => { expect(start).toHaveBeenCalledWith('project-a', 'solution-expert') })
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
@@ -73,4 +76,12 @@ it('disables repeated clicks while starting and allows retry after failure', asy
   reject(new Error('Preset is missing'))
   await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('Preset is missing') })
   expect((button as HTMLButtonElement).disabled).toBe(false)
+})
+
+it('starts Reception assistant with Business expert after preserving the workspace choice', async () => {
+  const start = mount()
+  fireEvent.click(screen.getByRole('button', { name: /^Reception assistant/ }))
+  expect(screen.getByRole('dialog', { name: en.chooseWorkspace })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: /Project A/ }))
+  await waitFor(() => { expect(start).toHaveBeenCalledWith('project-a', 'business-expert') })
 })

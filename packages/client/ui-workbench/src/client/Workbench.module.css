@@ -7,11 +7,12 @@
 .page button { font: inherit; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 10px 16px; color: inherit; background: var(--dsw-alias-bg-base); cursor: pointer; }
 .page button[aria-pressed='true'], .available { background: var(--dsw-alias-bg-layer-1); }
 .legend { margin-left: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; padding: 0; list-style: none; }
+.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; gap: 14px; padding: 0; list-style: none; }
 .card { border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 20px 16px; display: flex; flex-direction: column; }
 .card h3 { font-size: 16px; margin-bottom: 0; }
-.card p { font-size: 13px; flex: 1; }
-.card button { text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.card p { font-size: 13px; }
+.assistants { display: flex; flex-direction: column; gap: 8px; }
+.card button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .card button span { font-size: 12px; }
 .card .available { border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-bg-layer-1); }
 .card .pending { cursor: default; color: var(--dsw-alias-label-tertiary); }

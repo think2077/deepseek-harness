@@ -27,7 +27,7 @@ export function apply(ctx: Context): void {
   const lifetime = new AbortController()
   ctx.effect(() => () => { lifetime.abort() }, 'ui-workbench: cancel navigation')
   let starting = false
-  const startSolution = async (workspaceId: WorkspaceId): Promise<void> => {
+  const startAssistant = async (workspaceId: WorkspaceId, presetId: string): Promise<void> => {
     if (starting) return
     starting = true
     const signal = AbortSignal.any([ctx.layout.beginNavigation(), lifetime.signal])
@@ -35,7 +35,7 @@ export function apply(ctx: Context): void {
     try {
       const sessionId = await ctx.sessions.create({ workspaceId })
       if (!isCurrent()) return
-      const result = await ctx.remote.agentPresets.select(sessionId, 'solution-expert')
+      const result = await ctx.remote.agentPresets.select(sessionId, presetId)
       if (!result.ok) throw new Error(result.error.message)
       if (isCurrent()) ctx.uiWorkspace.openSession(sessionId)
     } finally {
@@ -43,7 +43,7 @@ export function apply(ctx: Context): void {
     }
   }
   ctx.slots.inject('main', () => ctx.slots.register({
-    name: 'main', key: id, locale: 'workbench', inject: () => ({ startSolution }),
+    name: 'main', key: id, locale: 'workbench', inject: () => ({ startAssistant }),
   }, Workbench))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
     name: 'sidebar.panellist', id, order: -120, locale: 'workbench', label: () => t('nav'),
