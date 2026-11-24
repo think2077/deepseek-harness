@@ -13,6 +13,10 @@ export const zh = {
   'connection.connected': '连接成功',
   'connection.reconnect': '连接异常，点击立即重连',
   'connection.restart': '连接中断，正在重试，点击立即重连',
+  'account.menu': '账号菜单',
+  'account.settings': '设置',
+  'account.signOut': '登出',
+  'account.anonymous': '当前账号',
 } satisfies Record<string, string>
 
 /** The settings namespace key union. */
@@ -31,4 +35,8 @@ export const en = {
   'connection.connected': 'Connected',
   'connection.reconnect': 'Disconnected, reconnect now',
   'connection.restart': 'Reconnecting, reconnect now',
+  'account.menu': 'Account menu',
+  'account.settings': 'Settings',
+  'account.signOut': 'Sign out',
+  'account.anonymous': 'Account',
 } satisfies Record<SettingsKey, string>

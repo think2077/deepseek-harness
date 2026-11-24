@@ -1105,7 +1105,6 @@ export function WorkspaceBrowser({
             </div>
           </div>
         )}
-        {wide && personalWorkspace && <a href="/auth/account">{t('account.manage')}</a>}
         <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
           {wide && (
             <ViewOptionsMenu

@@ -181,6 +181,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
         if (authentication instanceof WebAccounts) {
           table.push({ kind: 'global', name: '__DSH_PERSONAL_WORKSPACE__', value: true })
           table.push({ kind: 'global', name: '__DSH_WEB_USER__', value: authentication.userId() })
+          table.push({ kind: 'global', name: '__DSH_WEB_USER_NAME__', value: authentication.displayName() ?? '' })
         }
       })
       const fetchHandler = connection.createSharedFetchHandler(API_PATH)

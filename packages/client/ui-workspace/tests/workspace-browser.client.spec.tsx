@@ -117,7 +117,8 @@ describe('WorkspaceBrowser', () => {
     expect(screen.getByText('张三的工作空间')).toBeDefined()
     expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
     expect(screen.queryByRole('button', { name: '工作区“张三的工作空间”的操作' })).toBeNull()
-    expect(screen.getByRole('link', { name: '账号' }).getAttribute('href')).toBe('/auth/account')
+    // The account entry moved to the sidebar foot, so the header carries no link.
+    expect(screen.queryByRole('link', { name: '账号' })).toBeNull()
     expect(screen.getAllByRole('treeitem').some(row => row.getAttribute('draggable') === 'true')).toBe(false)
   })
 

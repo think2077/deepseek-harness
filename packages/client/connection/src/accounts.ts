@@ -11,6 +11,7 @@ import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { webAccountsSpec } from './account-store.ts'
 import type { FeishuConfig, WebUserId } from './account-types.ts'
+import { loginPage } from './feishu-login-page.ts'
 import type { ConnectionIndexRequest, ConnectionIndexResponse, ConnectionTrustRequest } from './rpc.ts'
 
 interface LoginContext { readonly digest: string; readonly userId: WebUserId }
@@ -154,6 +155,16 @@ export class WebAccounts extends Service {
       throw new RemoteError('gateway/bad-request', 'authentication required', {})
     }
     return login.userId
+  }
+
+  /**
+   * Feishu display name of the authenticated account.
+   * Client surfaces greet the signed-in employee, so the index injects it
+   * alongside the user id instead of leaving them a second round trip.
+   * @returns the employee name, or undefined when the row is gone.
+   */
+  displayName(): string | undefined {
+    return this.domain.table('users').get(this.userId())?.displayName
   }
 
   /**
@@ -326,18 +337,9 @@ export class WebAccounts extends Service {
       response.writeHead(303, { ...headers, location: '/auth/login', 'set-cookie': this.cookie(COOKIE, '', 0) }); response.end(); return
     }
     if (request.method !== 'GET') { response.writeHead(405, headers); response.end(); return }
-    if (url.pathname === '/auth/account') {
-      const login = this.login(request)
-      if (login === undefined) { response.writeHead(303, { ...headers, location: '/auth/login' }); response.end(); return }
-      const user = this.domain.table('users').get(login.userId)
-      if (user === undefined) throw new Error('browser login references a missing account')
-      const name = user.displayName.replace(/[&<>"']/g, value => `&#${String(value.charCodeAt(0))};`)
-      response.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; form-action 'self'; frame-ancestors 'none'" })
-      response.end(`<!doctype html><html lang="zh"><meta charset="utf-8"><title>账号 / Account</title><body><h1>${name}</h1><p>${name}的工作空间</p><a href="/">返回 / Back</a><form method="post" action="/auth/logout"><button>退出登录 / Sign out</button></form></body></html>`); return
-    }
     if (url.pathname === '/auth/login') {
-      response.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'" })
-      response.end('<!doctype html><html lang="zh"><meta charset="utf-8"><title>飞书登录 / Feishu sign-in</title><body style="font-family:system-ui;max-width:440px;margin:15vh auto;padding:24px"><h1>DeepSeek Harness</h1><p>登录后进入你的个人工作空间。</p><a href="/auth/feishu">使用飞书登录 / Sign in with Feishu</a></body></html>'); return
+      response.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'" })
+      response.end(loginPage()); return
     }
     if (url.pathname === '/auth/feishu') {
       for (const [key, attempt] of this.attempts) if (attempt.expiresAt <= Date.now()) this.attempts.delete(key)

@@ -18,7 +18,8 @@
     "src/rpc.ts",
     "src/accounts.ts",
     "src/account-store.ts",
-    "src/account-types.ts"
+    "src/account-types.ts",
+    "src/feishu-login-page.ts"
   ],
   "references": [
     {

@@ -11,6 +11,7 @@
  * to the step, so a mounted-but-deciding step paints nothing here.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
 import {
   ConnectionIndicator,
@@ -105,6 +106,96 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
   )
 }
 
+/** Identity the multi-user host advertises for this browser session, if any. */
+interface SignedInAccount { readonly name: string }
+
+/**
+ * Read the personal-workspace identity the host injects on the index page.
+ * Single-user deployments carry no flag, so the row stays absent there.
+ * @returns the employee name, or undefined outside Feishu (personal) mode.
+ */
+function signedInAccount(): SignedInAccount | undefined {
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') !== true) return undefined
+  const name: unknown = Reflect.get(globalThis, '__DSH_WEB_USER_NAME__')
+  return { name: typeof name === 'string' ? name.trim() : '' }
+}
+
+/** Props of the sidebar-foot account row. */
+type AccountRowProps = {
+  account: SignedInAccount
+  wide: boolean
+  onOpenSettings: () => void
+  /** Focus target restored once the settings dialog closes. */
+  triggerRef: RefObject<HTMLButtonElement>
+  t: SettingsRootComponentProps['t']
+  /** Connection-recovery control rendered beside the name. */
+  children: ReactNode
+}
+
+/**
+ * Sidebar-foot identity row: the employee name opens a menu whose Settings
+ * item raises the very panel the gear below opens, and whose Sign-out item
+ * posts the host's logout route. Menu state is local viewing state; dismissal
+ * is an outside pointer press or Escape.
+ */
+function AccountRow({ account, wide, onOpenSettings, triggerRef, t, children }: AccountRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const row = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (e.target instanceof Node && row.current?.contains(e.target) === true) return
+      setMenuOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
+  const name = account.name === '' ? t('account.anonymous') : account.name
+  const initial = Array.from(name)[0] ?? '·'
+  return (
+    <div ref={row} className={clsx(css.accountRow, !wide && css.accountRailRow)}>
+      {menuOpen && (
+        <div className={css.accountMenu} role="menu" aria-label={t('account.menu')}>
+          <button
+            type="button"
+            role="menuitem"
+            className={css.accountItem}
+            onClick={() => {
+              setMenuOpen(false)
+              onOpenSettings()
+            }}
+          >
+            {t('account.settings')}
+          </button>
+          <form method="post" action="/auth/logout">
+            <button type="submit" role="menuitem" className={css.accountItem}>
+              {t('account.signOut')}
+            </button>
+          </form>
+        </div>
+      )}
+      <button
+        ref={triggerRef}
+        type="button"
+        className={clsx(css.trigger, !wide && css.rail)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={name}
+        onClick={() => { setMenuOpen(open => !open) }}
+      >
+        <span className={css.accountAvatar} aria-hidden="true">{initial}</span>
+        {wide && <span className={css.accountName}>{name}</span>}
+      </button>
+      {children}
+    </div>
+  )
+}
+
 /**
  * Render the settings trigger and panel.
  * @param props - composed slot props (contract/slots.ts).
@@ -120,7 +211,8 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   const [showRecovery, setShowRecovery] = useState(false)
   const [holdConnecting, setHoldConnecting] = useState(false)
   const connectingShownAt = useRef<number | undefined>(undefined)
-  const triggerButton = useRef<HTMLButtonElement | null>(null)
+  // Ref shape matters: the object is handed to the identity row as well.
+  const triggerButton = useRef<HTMLButtonElement>(null)
   const wasOpen = useRef(open)
   const close = useCallback(() => {
     setOpen(false)
@@ -208,30 +300,49 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     connectionIndicator = 'recovered'
   }
 
+  const account = signedInAccount()
+  const indicator = (
+    <ConnectionIndicator
+      state={wide ? connectionIndicator : undefined}
+      disconnectedLabel={t('connection.error')}
+      connectingLabel={t('connection.connecting')}
+      recoveredLabel={t('connection.connected')}
+      reconnectActionLabel={t('connection.reconnect')}
+      restartActionLabel={t('connection.restart')}
+      onReconnect={reconnect}
+    />
+  )
+
   return (
     <>
-      <div className={clsx(css.triggerRow, !wide && css.railRow)}>
-        <button
-          ref={triggerButton}
-          type="button"
-          className={clsx(css.trigger, !wide && css.rail)}
-          aria-label={t('trigger')}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => { setOpen(true) }}
+      {/* Personal deployments fold Settings into the identity menu, so the
+          foot keeps one seat: a separate gear would only repeat that item. */}
+      {account !== undefined ? (
+        <AccountRow
+          account={account}
+          wide={wide}
+          onOpenSettings={() => { setOpen(true) }}
+          triggerRef={triggerButton}
+          t={t}
         >
-          {renderSlot('settings.trigger', { wide })}
-        </button>
-        <ConnectionIndicator
-          state={wide ? connectionIndicator : undefined}
-          disconnectedLabel={t('connection.error')}
-          connectingLabel={t('connection.connecting')}
-          recoveredLabel={t('connection.connected')}
-          reconnectActionLabel={t('connection.reconnect')}
-          restartActionLabel={t('connection.restart')}
-          onReconnect={reconnect}
-        />
-      </div>
+          {indicator}
+        </AccountRow>
+      ) : (
+        <div className={clsx(css.triggerRow, !wide && css.railRow)}>
+          <button
+            ref={triggerButton}
+            type="button"
+            className={clsx(css.trigger, !wide && css.rail)}
+            aria-label={t('trigger')}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => { setOpen(true) }}
+          >
+            {renderSlot('settings.trigger', { wide })}
+          </button>
+          {indicator}
+        </div>
+      )}
       {open && (
         <SettingsPanel
           rows={rows}

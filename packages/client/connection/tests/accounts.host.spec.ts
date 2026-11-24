@@ -225,9 +225,9 @@ describe('Feishu personal Workspaces', () => {
     expect(h.remoteCalls).toEqual(['alice', 'denied'])
     expect(h.ctx.connection.authenticatedUrl(h.origin)).toBe(h.origin)
     expect(h.ctx.connection.requestRejection({ headers: { host: new URL(h.origin).host } })).toBe(401)
-    const account = await h.get('/auth/account', login.cookie)
-    expect(await account.text()).toContain('张三')
-    expect(account.headers.get('cache-control')).toBe('no-store')
+    // The account page is gone: the identity reaches the client as an index global.
+    const request = h.request(login.cookie!)
+    expect(h.ctx.webAccounts.run(request, () => h.ctx.webAccounts.displayName())).toBe('张三')
   })
 
   it('revokes login state and attached connections at logout and rejects cross-site logout', async () => {

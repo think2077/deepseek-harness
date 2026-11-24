@@ -411,6 +411,10 @@
 .collapsed .settingsArea,
 .collapsed .footerActions {
   display: flex;
+  /* Seats stack in the rail too: a second foot occupant must not sit beside
+     Settings, which it did while these were implicit row containers. */
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   width: auto;
 }

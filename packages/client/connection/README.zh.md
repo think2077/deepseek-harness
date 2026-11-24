@@ -62,7 +62,7 @@ cookie 签名密钥是 `ctx.credentials` 中由 `client-connection/browser-sessi
 
 使用 `pnpm dsh --profile web --patch /absolute/feishu.patch.yml` 启动。由反向代理终止 HTTPS，将 HTTP 和 WebSocket 请求转发到 loopback 服务，并保留原始 `Host` 和 `Origin` 请求头。`publicOrigin` 必须为规范的 HTTPS origin，其精确 authority 必须出现在 `trustedHosts` 中；开发时允许 loopback HTTP。任何转发请求头都不建立用户身份。此模式下打印的 URL 不携带启动令牌。
 
-`GET /auth/login` 提供飞书登录。回调校验绑定 HttpOnly 浏览器 Cookie 的短时、一次性 state，按配置检查企业白名单，并创建或复用稳定的内部账号和固定目录。内部 ID 由应用、企业和飞书 open id 派生；显示名变化只更新 Workspace 标题，不移动文件。侧边栏只展示该用户的 Workspace 和 Session，移除 Workspace 创建和管理入口，并链接到 `/auth/account` 提供退出操作。模型、插件清单、知识库管理和预设编写由部署方维护；主题和语言偏好保留在浏览器本地。
+`GET /auth/login` 提供飞书登录。回调校验绑定 HttpOnly 浏览器 Cookie 的短时、一次性 state，按配置检查企业白名单，并创建或复用稳定的内部账号和固定目录。内部 ID 由应用、企业和飞书 open id 派生；显示名变化只更新 Workspace 标题，不移动文件。侧边栏只展示该用户的 Workspace 和 Session，移除 Workspace 创建和管理入口，左下角显示飞书姓名并提供「设置 / 登出」菜单。模型、插件清单、知识库管理和预设编写由部署方维护；主题和语言偏好保留在浏览器本地。
 
 | 设置 | 默认值 | 含义 |
 |---|---|---|
