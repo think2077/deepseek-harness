@@ -168,6 +168,17 @@ export class WebAccounts extends Service {
   }
 
   /**
+   * Whether the authenticated account administers this deployment.
+   * The flag is deployment state (it gates the shared model and plugin
+   * configuration), so it is granted once — to the first account — and
+   * afterwards only by editing the stored record.
+   * @returns true for the administrator; unknown accounts read as false.
+   */
+  admin(): boolean {
+    return this.domain.table('users').get(this.userId())?.admin === true
+  }
+
+  /**
    * Test request authentication without changing asynchronous identity.
    * @param request - browser request headers.
    * @returns whether a live browser login exists for the configured public host.
@@ -380,8 +391,12 @@ export class WebAccounts extends Service {
         const workspace = await this.ctx.workspaceRegistry.create(path, `${profile.name}的工作空间`)
         if (workspace.title !== `${profile.name}的工作空间`) await workspace.setTitle(`${profile.name}的工作空间`)
         const previous = this.domain.table('users').get(userId)
+        // The first account this deployment ever admits administers the shared
+        // model and plugin configuration; every later account is an employee.
+        // Re-login must keep what the record already carries.
+        const admin = previous?.admin ?? this.domain.table('users').size === 0
         await this.domain.table('users').put(userId, { appId: this.config.appId, tenantKey: profile.tenant_key,
-          openId: profile.open_id, displayName: profile.name, createdAt: previous?.createdAt ?? Date.now() })
+          openId: profile.open_id, displayName: profile.name, createdAt: previous?.createdAt ?? Date.now(), admin })
       })
       const browserToken = secret()
       const old = this.login(request)

@@ -73,7 +73,11 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true) return
+  // A Feishu deployment shares one model and credential configuration across
+  // every employee, so only the administrator gets the section at all; the
+  // local (personal Workspace) mode keeps it for everyone.
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true
+    && Reflect.get(globalThis, '__DSH_WEB_USER_ADMIN__') !== true) return
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 

@@ -228,6 +228,19 @@ describe('Feishu personal Workspaces', () => {
     // The account page is gone: the identity reaches the client as an index global.
     const request = h.request(login.cookie!)
     expect(h.ctx.webAccounts.run(request, () => h.ctx.webAccounts.displayName())).toBe('张三')
+    expect(h.ctx.webAccounts.run(request, () => h.ctx.webAccounts.admin())).toBe(true)
+  })
+
+  it('grants the administrator role to the first account only', async () => {
+    const h = await harness()
+    const first = await h.login('alice')
+    const second = await h.login('bob')
+    expect(h.ctx.webAccounts.run(h.request(first.cookie!), () => h.ctx.webAccounts.admin())).toBe(true)
+    expect(h.ctx.webAccounts.run(h.request(second.cookie!), () => h.ctx.webAccounts.admin())).toBe(false)
+    // Re-login keeps the role instead of re-granting it.
+    expect(h.ctx.webAccounts.run(h.request(second.cookie!), () => h.ctx.webAccounts.displayName())).toBe('李四')
+    const again = await h.login('bob')
+    expect(h.ctx.webAccounts.run(h.request(again.cookie!), () => h.ctx.webAccounts.admin())).toBe(false)
   })
 
   it('revokes login state and attached connections at logout and rejects cross-site logout', async () => {

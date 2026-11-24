@@ -413,6 +413,15 @@ dsh web: http://127.0.0.1:3080
 5. 会话隔离：只列自己的会话，用别人的 `sessionId` 访问一律 404；
 6. 知识库：公共 / 方案专属 / 候选三个部署级知识库全员共享；「项目知识库」只列当前账号自己的工作区，看不到别人的目录；
 7. 侧边栏左下角显示「飞书姓名」，点开是「设置 / 登出」菜单：设置打开既有的设置面板，登出即 `POST /auth/logout`，会删掉该浏览器会话的 cookie 并断开它的 WebSocket。
+8. 管理员账号：本部署**第一个**登录成功的账号自动成为管理员（`web_accounts.json` 的 `users.<id>.admin` 记为 `true`），之后的账号都是普通员工。设置面板里「Models」「Plugins」两个分区只对管理员注册，员工看不到；这两个分区管的是全员共用的模型、密钥和插件开关，因此不逐个方法做服务端权限校验，只靠界面不注册 + 内部部署的信任边界。
+
+   手工调整（改完需重启实例生效）：
+
+   ```
+   # 把某个账号设为管理员（值为 true），取消则改回 false
+   node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/storages/web_accounts.json",d=JSON.parse(fs.readFileSync(p));for(const u of Object.values(d.tables.users))if(u.displayName==="张三")u.admin=true;fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n")'
+   ```
+
 
 ### 9.6 验证
 
@@ -524,3 +533,4 @@ nginx -t && nginx -s reload
 | 登录成功后刷新又要求登录 | 非 HTTPS 时 Secure cookie 落不下，或 Nginx 改了 Host 头 | 走 HTTPS，并保留 `proxy_set_header Host $host` |
 | 启动报 `Session ownership references a missing account` | 手动删过账号，残留登录/归属记录（旧版本代码） | 当前版本启动时会自动清理并打 warn；旧包需清 `~/.dsh/storages/web_accounts.json` 里对应行 |
 | 飞书模式下左侧「我的审核」「知识库」不见了 | 客户端插件被个人模式开关挡住 | 用当前源码构建（含 `ui-knowledge-base` 修复），并重启服务 |
+| 设置面板里没有「Models」「Plugins」 | 当前账号不是管理员（这两个分区只给管理员注册） | 把该账号的 `users.<id>.admin` 改成 `true` 后重启，参考 9.5 第 8 条 |

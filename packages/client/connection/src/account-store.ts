@@ -7,6 +7,10 @@ import type { WebUserId } from './account-types.ts'
 const user = z.object({
   appId: z.string(), tenantKey: z.string(), openId: z.string(),
   displayName: z.string(), createdAt: z.number(),
+  // Deployment-level role, not an Feishu one: the first account in this domain
+  // becomes the administrator, and records written before the field existed
+  // read as ordinary employees.
+  admin: z.boolean().default(false),
 })
 const browserSession = z.object({ userId: z.string().transform(value => value as WebUserId), expiresAt: z.number() })
 const owner = z.object({ userId: z.string().transform(value => value as WebUserId) })

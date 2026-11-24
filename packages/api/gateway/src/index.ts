@@ -637,7 +637,16 @@ export class TypertGatewayService extends Service implements TypertGateway {
     const accounts = this.ctx.get('webAccounts')
     if (accounts !== undefined) {
       accounts.userId()
-      if (!['session', 'workspace', 'workspaceFiles', 'fileReferences', 'skills', 'commands', 'goals', 'permissionPresets', 'fileUploads', 'terminal', 'messageFeedback', 'sessionFeedback', 'sessionReferenceResolver', 'knowledgeBase'].includes(request.namespace)
+      // Deployment-level configuration (model providers, credentials, plugins,
+      // knowledge bases) is shared by every employee, so its namespaces are
+      // reachable here; the client decides which sections an employee may see.
+      const shared = [
+        'session', 'workspace', 'workspaceFiles', 'fileReferences', 'skills', 'commands', 'goals',
+        'permissionPresets', 'fileUploads', 'terminal', 'messageFeedback', 'sessionFeedback',
+        'sessionReferenceResolver', 'knowledgeBase', 'llm', 'credentials', 'settings',
+        'pluginInventory', 'dynamicCordisRunner',
+      ]
+      if (!shared.includes(request.namespace)
         && !(request.namespace === 'agentPresets' && ['list', 'read', 'select'].includes(request.method))) {
         throw new RemoteError('gateway/bad-request', 'operation unavailable in personal Workspace mode', {})
       }

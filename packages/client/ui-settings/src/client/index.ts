@@ -55,7 +55,14 @@ export function apply(ctx: Context): void {
   const schema = new SettingsSchemaService(ctx)
   // Resolved once here, where `remote` is declared in this plugin's own
   // `inject`; the binder hands the same answer to every scope it binds.
-  const persistence = ctx.remote.$host.isLoopback && Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') !== true ? 'host' : 'memory'
+  // A Feishu deployment serves one shared settings document from the Host to
+  // every employee for its whole lifetime, so it always reads and writes
+  // through the wire — including the sections gated to the administrator,
+  // which would otherwise find no describe view at all. The local page keeps
+  // the loopback rule: non-loopback pages stay process-local.
+  const persistence = Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true || ctx.remote.$host.isLoopback
+    ? 'host'
+    : 'memory'
   const mirror = new SettingsDescribeMirror(ctx, persistence)
   ctx.effect(() => {
     const disposers = [

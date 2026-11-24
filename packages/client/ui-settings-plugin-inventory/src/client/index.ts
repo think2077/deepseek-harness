@@ -30,7 +30,10 @@ export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
 
 /** Contribute the lazy inventory tab to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
-  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true) return
+  // Shared deployment surface: only the administrator browses the plugin
+  // inventory; local (personal Workspace) mode keeps it for everyone.
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true
+    && Reflect.get(globalThis, '__DSH_WEB_USER_ADMIN__') !== true) return
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugin-inventory: dictionaries')
 
