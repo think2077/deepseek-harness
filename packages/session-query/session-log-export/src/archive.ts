@@ -49,6 +49,9 @@ export interface SessionLogExportDeps {
 
 /** The export services narrowed to the mounted ones streaming actually reads. */
 export interface SessionLogExportReady {
+  /** Optional browser policy; foreign or unowned descendants are excluded. */
+  readonly canReadSession?: (sessionId: SessionId) => boolean
+
   readonly sessionQuery: SessionQueryEngine
   readonly sessionPersistence: SessionPersistence
   readonly attachments: AttachmentStore
@@ -351,7 +354,7 @@ export async function* sessionLogZipEntries(
       for (const node of nodes) {
         signal?.throwIfAborted()
         const id = node.session.header.id
-        if (seen.has(id)) continue
+        if (seen.has(id) || deps.canReadSession?.(id) === false) continue
         seen.add(id)
         await flushLiveSessionLog(deps, id, signal)
         const content = await readSessionLogText(deps.sessionPersistence, id, signal)

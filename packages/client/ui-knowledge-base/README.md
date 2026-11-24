@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 This browser plugin adds **My reviews** and **Knowledge base** as global sidebar rows above **New Session**, each with a full-size main panel. **My reviews** shows extracted candidate cards by pending, accepted, and rejected state. Each card presents one readable knowledge suggestion; technical evidence remains stored but hidden. A reviewer can edit that suggestion, reject it with confirmation, or select a destination and request a smart insert, append, replace, or skip proposal before acceptance. **Knowledge base** keeps public, solution-specific, candidate, and Workspace files in separate tree views. Revision conflicts preserve local state instead of overwriting changed files.
 
+Feishu personal-space deployments keep instance configuration operator-owned; browser-local preferences remain available. See [Connection](../connection/README.md#feishu-personal-workspaces) for account policy.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

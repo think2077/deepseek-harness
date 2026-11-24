@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 This package lets users browse grouped or flat Session lists, choose a Workspace for a new Session, and manage Workspaces and Sessions through add, rename, reorder, search, fork, archive, and Workspace deletion. Pending interactions appear as warning dots, active scheduled tasks as alarm markers, and subagent-origin Sessions remain hidden. Canonically distinct folder paths remain separate Workspaces. Adding a Workspace requires a composed directory picker; without one, the add action is unavailable.
 
+Feishu personal-space mode shows the single account Workspace, hides add, rename, remove, drag, and picker controls, and provides an Account link for sign-out. [Connection](../connection/README.md#feishu-personal-workspaces) owns the deployment setting and server enforcement.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

@@ -123,6 +123,7 @@ export class SessionController extends TypertRemoteService {
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
+      ctx.get('webAccounts')?.assertSession(sessionId)
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
       return result.agent
@@ -144,7 +145,18 @@ export class SessionController extends TypertRemoteService {
     ctx.plugin(SessionSkillCatalog)
 
     ctx.on('session/created', (session) => {
-      ctx.emit('api-session/added', this.listState.summaryFor(session))
+      const publish = (): void => { ctx.emit('api-session/added', this.listState.summaryFor(session)) }
+      const accounts = ctx.get('webAccounts')
+      if (accounts !== undefined && accounts.ownerOf(session.id) === undefined) {
+        const parent = session.header.parentSession
+        const owner = parent === undefined ? undefined : accounts.ownerOf(parent)
+        if (owner === undefined) return
+        void accounts.claimSession(session.id, owner).then(publish).catch((error: unknown) => {
+          ctx.logger.error(`Session ownership publication failed: ${String(error)}`)
+        })
+        return
+      }
+      publish()
     })
     ctx.on('session/disposed', (session) => {
       ctx.emit('api-session/removed', session.id)
@@ -189,6 +201,7 @@ export class SessionController extends TypertRemoteService {
    * @returns the live Agent or the stable Session-domain failure.
    */
   resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult> {
+    this.ctx.get('webAccounts')?.assertSession(sessionId)
     return this.agents.resolveAgent(sessionId)
   }
 
@@ -202,6 +215,7 @@ export class SessionController extends TypertRemoteService {
     sessionId: SessionId,
     signal?: AbortSignal,
   ): Promise<SessionInspection> {
+    this.ctx.get('webAccounts')?.assertSession(sessionId)
     const attached = this.ctx.sessions.get(sessionId)
     if (attached !== undefined) {
       return Promise.resolve({
@@ -271,7 +285,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote
   canOpenWorkspacePath(): boolean {
-    return this.canOpenPath()
+    return this.ctx.get('webAccounts') === undefined && this.canOpenPath()
   }
 
   /**
@@ -295,6 +309,7 @@ export class SessionController extends TypertRemoteService {
     request: SessionOpenWorkspacePathRequest,
     signal: AbortSignal,
   ): Promise<SessionOpenWorkspacePathValue> {
+    this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     if (request.path.length === 0) {
       throw new RemoteError(
         'gateway/bad-request',

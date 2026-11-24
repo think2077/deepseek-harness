@@ -1,5 +1,6 @@
 /** Cold Session history pagination and live-event source. */
 
+import type {} from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import type { AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
@@ -245,6 +246,8 @@ export class SessionHistoryController {
     withProjections: boolean,
   ): Promise<SessionObservation> {
     const sessionId = addressId(address)
+    this.ctx.get('webAccounts')?.assertSession(sessionId)
+    if (address.kind === 'subagent') this.ctx.get('webAccounts')?.assertSession(address.parentSessionId)
     try {
       const observation = await this.ctx.sessionQuery.observeSession(sessionId, {
         signal,

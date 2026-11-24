@@ -1,5 +1,6 @@
 /** Cold-safe Session list and search projection. */
 
+import type {} from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent-presets'
 import type { ImageAttachmentLimits } from '@deepseek-ai/dsh-attachment'
@@ -130,6 +131,7 @@ export class ApiSessionList {
     const items: SessionSummary[] = []
     const cold: SessionHeader[] = []
     for (const record of records) {
+      if (this.ctx.get('webAccounts')?.ownsSession(record.header.id) === false) continue
       const live = this.ctx.sessions.get(record.header.id)
       if (live !== undefined) {
         items.push(this.summaryFor(live))
@@ -178,7 +180,8 @@ export class ApiSessionList {
       const visible = await provider.listSessions(signal)
       signal.throwIfAborted()
       const visibleIds = new Set(visible
-        .filter(record => record.header.cwd !== undefined)
+        .filter(record => record.header.cwd !== undefined
+          && this.ctx.get('webAccounts')?.ownsSession(record.header.id) !== false)
         .map(record => record.header.id))
       if (visibleIds.size === 0) return { items: [], hasMore: false }
       const authorized: SessionSearchItem[] = []

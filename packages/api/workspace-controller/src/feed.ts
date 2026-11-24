@@ -1,5 +1,7 @@
 /** Reconnect-safe Workspace baseline and increment producer. */
 
+import type {} from '@deepseek-ai/dsh-client-connection'
+import type { WebUserId } from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
@@ -45,7 +47,7 @@ function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceVie
 
 /** Owns Workspace domain observation and all active follow generations. */
 export class WorkspaceFeed {
-  private readonly followers = new Set<WorkspaceFollower>()
+  private readonly followers = new Map<WorkspaceFollower, { userId: WebUserId; workspaceId: string } | undefined>()
   private knownIds: Set<string>
   private order: readonly string[]
   private archived: readonly string[]
@@ -58,7 +60,7 @@ export class WorkspaceFeed {
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
     ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
     ctx.effect(() => () => {
-      for (const follower of this.followers) follower.close()
+      for (const follower of this.followers.keys()) follower.close()
       this.followers.clear()
     }, 'workspace-controller.feed')
   }
@@ -68,9 +70,10 @@ export class WorkspaceFeed {
    * @returns all active Workspaces and archived Session identities.
    */
   baseline(): WorkspaceBaseline {
+    const accounts = this.ctx.get('webAccounts')
     return {
-      items: this.ctx.workspaceRegistry.list().map(workspaceView),
-      archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds],
+      items: (accounts === undefined ? this.ctx.workspaceRegistry.list() : [accounts.workspace()]).map(workspaceView),
+      archivedSessionIds: this.ctx.workspaceRegistry.archivedSessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false),
     }
   }
 
@@ -82,7 +85,8 @@ export class WorkspaceFeed {
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     signal.throwIfAborted()
     const follower = new WorkspaceFollower()
-    this.followers.add(follower)
+    const accounts = this.ctx.get('webAccounts')
+    this.followers.set(follower, accounts === undefined ? undefined : { userId: accounts.userId(), workspaceId: accounts.workspace().id })
     try {
       yield { type: 'baseline', value: this.baseline() }
       yield* follower.read(signal)
@@ -131,7 +135,21 @@ export class WorkspaceFeed {
   }
 
   private publish(frame: Exclude<WorkspaceFollowFrame, { readonly type: 'baseline' }>): void {
-    for (const follower of this.followers) follower.push(frame)
+    for (const [follower, identity] of this.followers) {
+      if (identity === undefined) { follower.push(frame); continue }
+      const accounts = this.ctx.get('webAccounts')
+      if (accounts === undefined) continue
+      switch (frame.type) {
+        case 'upsert':
+          if (frame.workspace.workspaceId === identity.workspaceId) follower.push(frame)
+          break
+        case 'remove':
+          if (frame.workspaceId === identity.workspaceId) follower.push(frame)
+          break
+        case 'order': follower.push({ ...frame, workspaceIds: frame.workspaceIds.filter(id => id === identity.workspaceId) }); break
+        case 'archived': follower.push({ ...frame, archivedSessionIds: frame.archivedSessionIds.filter(id => accounts.ownerOf(id) === identity.userId) }); break
+      }
+    }
   }
 }
 

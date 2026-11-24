@@ -146,16 +146,19 @@ export class ApiSessionAgentController {
   /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
   constructor(private readonly ctx: Context) {
     ctx.typert.lookups.configure('agent', async (sessionId: SessionId) => {
+      ctx.get('webAccounts')?.assertSession(sessionId)
       const found = await this.resolveAgent(sessionId)
       if ('error' in found) throw found.error
       return found.agent
     })
     ctx.typert.lookups.configure('session', async (sessionId: SessionId) => {
+      ctx.get('webAccounts')?.assertSession(sessionId)
       const found = await this.resolveAgent(sessionId)
       if ('error' in found) throw found.error
       return found.agent.session
     })
     ctx.typert.contexts.configureHost('agent', async (sessionId: SessionId) => {
+      ctx.get('webAccounts')?.assertSession(sessionId)
       const found = await this.resolveAgent(sessionId)
       if ('error' in found) throw found.error
       return found.agent.ctx

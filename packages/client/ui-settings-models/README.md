@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 `dsh-client-ui-settings-models` is the Models settings page of the dsh web client: users configure API keys (stored write-only under the profile's credential reference), edit each provider's model list, and hand-declare custom pi-ai routes, with provider rows and one editor card at a time. The page joins the provider directory, the settings document, and the credential descriptions into one shared snapshot, so a row's state stays consistent across all three. It also walks first-run users through two ordered dialogs — a versioned internal-testing notice and the conditional official-DeepSeek credential step.
 
+Feishu personal-space deployments keep instance configuration operator-owned; browser-local preferences remain available. See [Connection](../connection/README.md#feishu-personal-workspaces) for account policy.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

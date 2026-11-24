@@ -15,7 +15,10 @@
     "src/recovery-config.ts",
     "src/rpc-host.ts",
     "src/rpc-schema.ts",
-    "src/rpc.ts"
+    "src/rpc.ts",
+    "src/accounts.ts",
+    "src/account-store.ts",
+    "src/account-types.ts"
   ],
   "references": [
     {
@@ -38,6 +41,15 @@
     },
     {
       "path": "../../util/brand"
+    },
+    {
+      "path": "../../storage/storage-domain"
+    },
+    {
+      "path": "../../workspace/workspace"
+    },
+    {
+      "path": "../../typert/protocol"
     }
   ]
 }

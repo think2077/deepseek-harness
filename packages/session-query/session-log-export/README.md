@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 `dsh-session-log-export` lets the Web interface download a session's full history: a `Download session log` menu item under the Session Header's more-actions button and an `/export` slash command both hand the session tree — the session, its sub-sessions, and attachments — to the browser as a ZIP download. The package owns the Host archive stream, its authenticated Fetch route, and the browser controls and feedback. The browser chooses the download destination. Setup and usage come first; implementation details follow.
 
+Feishu personal-space downloads require ownership of the root Session and exclude descendants without matching durable ownership. [Connection](../../client/connection/README.md#feishu-personal-workspaces) owns browser authentication and the shared Fetch authorization.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

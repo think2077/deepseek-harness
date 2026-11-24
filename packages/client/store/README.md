@@ -10,6 +10,8 @@ English | [中文](README.zh.md)
 
 React-free observable and snapshot-store primitives shared by Client controllers and renderer adapters. The package owns synchronous and animation-frame publication, Immer-backed updates, shallow equality, and optional browser persistence; React hook construction remains in `@deepseek-ai/dsh-client-ui-renderer`. Use it when Client state must publish stable snapshots without depending on React.
 
+When the served page carries a Feishu account id, persisted browser keys are prefixed with that id for reads, writes, and removal. [Connection](../connection/README.md#feishu-personal-workspaces) owns the authenticated page injection.
+
 ## Table of Contents
 
 - [Model Experience](#model-experience)

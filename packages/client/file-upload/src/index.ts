@@ -122,6 +122,7 @@ export class FileUploads extends TypertRemoteService {
     readonly signal?: AbortSignal
     readonly name?: string
   }): Promise<FileUploadValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     const agent = await this.resolveAgent(request.sessionId)
     return this.commit(agent, async () => this.ctx.attachments.saveFileStream({
       data: request.data,

@@ -291,6 +291,9 @@ export interface WebScaffold {
 
 /** Options for {@link launchWebScaffold}. */
 export interface LaunchOptions {
+  /** Complete a configured external browser login and return its Cookie header. */
+  browserLogin?: (baseUrl: string) => Promise<string>
+
   /** Profile resolver backend used by this test Host; defaults to runtime coverage. */
   profileResolutionMode?: Extract<ProfileResolutionMode, 'dual' | 'runtime'>
   /** Enable the real Open In rows with deterministic launch-environment facts. */
@@ -805,15 +808,20 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     }
     baseUrl = `http://${browserHost}:${String(port)}`
     authenticatedUrl = ctx.connection.authenticatedUrl(baseUrl)
-    const login = await fetch(authenticatedUrl, { redirect: 'manual' })
-    const setCookie = login.headers.get('set-cookie')
-    if (login.status !== 303 || login.headers.get('location') !== '/' || setCookie === null) {
-      throw new Error('web e2e scaffold: browser token exchange did not return its session cookie')
+    if (options.browserLogin !== undefined) {
+      cookieHeader = await options.browserLogin(baseUrl)
+    } else {
+      const login = await fetch(authenticatedUrl, { redirect: 'manual' })
+      const setCookie = login.headers.get('set-cookie')
+      if (login.status !== 303 || login.headers.get('location') !== '/' || setCookie === null) {
+        throw new Error('web e2e scaffold: browser token exchange did not return its session cookie')
+      }
+      cookieHeader = setCookie.split(';', 1)[0] ?? ''
+      if (cookieHeader.length === 0) {
+        throw new Error('web e2e scaffold: browser token exchange returned an empty session cookie')
+      }
     }
-    cookieHeader = setCookie.split(';', 1)[0] ?? ''
-    if (cookieHeader.length === 0) {
-      throw new Error('web e2e scaffold: browser token exchange returned an empty session cookie')
-    }
+
   } catch (error) {
     if (process.cwd() !== originalCwd) process.chdir(originalCwd)
     const cleanupFailures = await cleanupScaffoldWorld(ctx, workspaceCwd, persistenceRoot)

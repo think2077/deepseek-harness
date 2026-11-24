@@ -1,3 +1,4 @@
+import type {} from '@deepseek-ai/dsh-client-connection'
 /**
  * Cross-session snapshot preparation. Hosts adapt mentions into structured
  * references; this service owns exact reads, projection, budgets, and durable context.
@@ -200,8 +201,11 @@ export class SessionReferenceResolver extends TypertRemoteService {
     const needle = query.toLocaleLowerCase()
     const targetCwd = agent.session.header.cwd
     assertNotCancelled(signal)
+    const accounts = this.ctx.get('webAccounts')
+    const owner = accounts?.ownerOf(agent.id)
     const records = (await settleWithCancellation(this.ctx.sessionQuery.listSessions(signal), signal))
-      .filter(record => record.header.id !== agent.id)
+      .filter(record => record.header.id !== agent.id
+        && (accounts === undefined || (owner !== undefined && accounts.ownerOf(record.header.id) === owner)))
       .map((record, index) => ({ record, index }))
     const labelled = records.map(({ record, index }) => ({
       record,
@@ -303,6 +307,11 @@ export class SessionReferenceResolver extends TypertRemoteService {
   ): Promise<PreparedReferencedMessage> {
     const acceptedContent = structuredClone(content)
     const inputs = normalizeReferences(agent.id, references, this.config.maxReferences)
+    const accounts = this.ctx.get('webAccounts')
+    if (accounts !== undefined && inputs.some(input => accounts.ownerOf(agent.id) === undefined
+      || accounts.ownerOf(input.sessionId) !== accounts.ownerOf(agent.id))) {
+      throw new SessionReferenceError('referenced session not found', 'SESSION_REFERENCE_READ_FAILED')
+    }
     if (inputs.length === 0) return { content: acceptedContent }
     assertNotCancelled(signal)
     const maxReferenceBytes = await this.referenceBudget(agent, signal)

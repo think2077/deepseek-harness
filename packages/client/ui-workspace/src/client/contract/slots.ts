@@ -73,6 +73,9 @@ export type DirectoryFlowSlotName =
  * flow whose occupant unloaded mid-interaction (nobody is left to cancel).
  */
 export type DirectoryPickingInjected = {
+  /** Personal-space deployment suppresses Workspace management. */
+  personalWorkspace?: boolean
+
   hooks: {
     /** True while this surface's directory-flow hole is occupied. */
     directoryFlow: HostObservable<boolean>
@@ -88,6 +91,9 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * browsing region drives.
  */
 export type WorkspaceBrowserInjected = {
+  /** Personal-space deployment suppresses Workspace management. */
+  personalWorkspace?: boolean
+
   hooks: DirectoryPickingInjected['hooks'] & {
     /**
      * Fixed Host facts, reached through a hook rather than injected as values:

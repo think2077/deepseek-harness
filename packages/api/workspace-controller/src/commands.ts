@@ -1,5 +1,6 @@
 /** Workspace command implementation and stable Remote failure mapping. */
 
+import type {} from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import {
@@ -38,6 +39,7 @@ export class WorkspaceCommands {
    * @returns the Workspace and whether this call created it.
    */
   create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+    this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     return this.enqueue(async () => {
       try {
         const existing = await this.ctx.workspaceRegistry.resolveByPath(request.path)
@@ -64,6 +66,7 @@ export class WorkspaceCommands {
    * @returns the updated Workspace projection.
    */
   rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
+    this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     const title = request.title.trim()
     if (title === '') {
       return Promise.reject(new RemoteError('gateway/bad-request', 'Workspace rename requires a non-blank title', {}))
@@ -91,6 +94,7 @@ export class WorkspaceCommands {
    * @returns deletion confirmation.
    */
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
+    this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     return this.enqueue(async () => {
       if (!await this.ctx.workspaceRegistry.delete(WorkspaceId(request.workspaceId))) {
         throw workspaceNotFound(request.workspaceId)
@@ -105,6 +109,7 @@ export class WorkspaceCommands {
    * @returns the complete resulting Workspace order.
    */
   async insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue> {
+    this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     try {
       const workspaceIds = await this.ctx.workspaceRegistry.insertBefore(
         WorkspaceId(request.workspaceId),
@@ -125,6 +130,10 @@ export class WorkspaceCommands {
    * @returns the updated Workspace projection.
    */
   async insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
+    const accounts = this.ctx.get('webAccounts')
+    if (accounts !== undefined && request.workspaceId !== accounts.workspace().id) accounts.rejectWorkspaceMutation()
+    if (request.beforeSessionId !== undefined) accounts?.assertSession(request.beforeSessionId)
     const workspace = this.requireWorkspace(request.workspaceId)
     try {
       await workspace.insertSessionBefore(request.sessionId, request.beforeSessionId)
@@ -152,13 +161,14 @@ export class WorkspaceCommands {
    * @returns the complete resulting archive set.
    */
   async archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     try {
       await this.ctx.workspaceRegistry.archiveSession(request.sessionId)
     } catch (error) {
       if (!(error instanceof WorkspaceUnknownSessionError)) throw error
       throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
     }
-    return { archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds] }
+    return { archivedSessionIds: this.ctx.workspaceRegistry.archivedSessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false) }
   }
 
   /**
@@ -169,8 +179,9 @@ export class WorkspaceCommands {
    * @returns the complete resulting archive set.
    */
   async unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     await this.ctx.workspaceRegistry.unarchiveSession(request.sessionId)
-    return { archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds] }
+    return { archivedSessionIds: this.ctx.workspaceRegistry.archivedSessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false) }
   }
 
   private requireWorkspace(workspaceId: WorkspaceId): Workspace {

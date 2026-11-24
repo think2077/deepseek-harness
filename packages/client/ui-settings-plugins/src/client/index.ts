@@ -62,6 +62,8 @@ export const inject = [
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true) return
+
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugins: section dictionaries')
 

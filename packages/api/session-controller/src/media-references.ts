@@ -19,7 +19,7 @@ const BASE_HEADERS = {
   'Content-Security-Policy': "sandbox; default-src 'none'",
 }
 
-async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Promise<Response> {
+async function serveFile(request: Request, fs: FileSystem, maxBytes: number, accounts?: Context['webAccounts']): Promise<Response> {
   const fail = (status: number, text: string): Response =>
     new Response(request.method === 'HEAD' ? null : text, { status, headers: BASE_HEADERS })
   const path = new URL(request.url).searchParams.get('path')
@@ -27,6 +27,7 @@ async function serveFile(request: Request, fs: FileSystem, maxBytes: number): Pr
   if (path.includes('\0') || !isAbsolute(path)) return fail(400, 'absolute path required')
   try {
     const target = await fs.resolve(path, { signal: request.signal })
+    if (accounts !== undefined && !accounts.ownsPath(target.displayPath)) return fail(404, 'not found')
     const mediaType = mime.lookup(target.displayPath) || 'application/octet-stream'
     const headers: Record<string, string> = {
       ...BASE_HEADERS,
@@ -71,7 +72,7 @@ export const SessionMediaReferences = {
       path: '/api/file',
       methods: ['GET', 'HEAD'],
       requestBody: 'buffered',
-      fetch: request => serveFile(request, ctx.fs, maxBytes),
+      fetch: request => serveFile(request, ctx.fs, maxBytes, ctx.get('webAccounts')),
     }), 'session-controller: /api/file')
   },
 }

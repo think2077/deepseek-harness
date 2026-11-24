@@ -11,6 +11,8 @@ kind: "package-reference"
 
 为 Host 与 Client 两侧的 Cordis 环境提供 Typert RPC endpoint。Host 入口提供 `ctx.typertGateway`，`@deepseek-ai/dsh-api-gateway/client` 则提供 `ctx.remote`；两者使用同一份生成的 `InvocationDescriptor` 约定，并将业务选择交给 API Remotes。Connection 承载一元调用的请求关联、信任和响应 envelope，Gateway 则拥有多路复用的 Remote 流。
 
+在飞书个人空间模式下，Remote 分派在 lookup 前校验账号身份，允许 Session 功能和只读部署目录，并将事件交付及 waterfall 结果限制为所属账号。WebSocket 的身份覆盖每次迭代器操作及其登录有效期；[Connection](../../client/connection/README.zh.md#feishu-personal-workspaces) 负责浏览器认证。
+
 ## 目录
 
 - [Host 服务：`TypertGatewayService`（ctx key：`typertGateway`）](#host-service-typertgatewayservice-ctx-key-typertgateway)

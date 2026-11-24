@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Two-sided Typert RPC endpoint for Host and Client Cordis environments. The Host entry provides `ctx.typertGateway`, while `@deepseek-ai/dsh-api-gateway/client` provides `ctx.remote`; both consume the same generated `InvocationDescriptor` contract and leave business selection to API Remotes. Connection carries unary request correlation, trust, and response envelopes, while Gateway owns multiplexed Remote streams.
 
+In Feishu personal-space mode, Remote dispatch checks account identity before lookup, allows Session features and read-only deployment catalogs, and restricts event delivery and waterfall results to the owning account. WebSocket identity spans every iterator operation and its login lifetime; [Connection](../../client/connection/README.md#feishu-personal-workspaces) owns browser authentication.
+
 ## Table of Contents
 
 - [Host service: `TypertGatewayService` (ctx key: `typertGateway`)](#host-service-typertgatewayservice-ctx-key-typertgateway)

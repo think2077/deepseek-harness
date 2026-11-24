@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 This package lets web-client features expose editable preferences backed by the Host settings document without implementing their own transport or schema handling. Each feature gets namespace-scoped reads and writes, atomic multi-field updates, schema validation, and protection against silently overwriting concurrent changes. It also provides the standard extension points for settings chrome, pages, header actions, plugin tabs, and onboarding while rendering no interface itself. Any preference-owning feature can use it without depending on a presentation package; a separate package provides the settings shell.
 
+Feishu personal-space deployments keep instance configuration operator-owned; browser-local preferences remain available. See [Connection](../connection/README.md#feishu-personal-workspaces) for account policy.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

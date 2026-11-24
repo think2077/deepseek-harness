@@ -11,6 +11,8 @@ kind: "package-reference"
 
 从配置的发布目录向浏览器提供已构建的 Web 壳。根路径与配置的 index 路径渲染包含启动信息的 index；已有资产直接提供，而缺失或非文件路径返回 404、路径遍历返回 403、不支持的方法返回 405。访问 index 需要有效的进程 token 或浏览器 cookie，但静态资产仍可公开访问。同一时间只能有一个实例处理未匹配的路由；第二个实例启动失败，卸载活动实例后，未匹配的请求返回 404。
 
+经过认证的个人空间首页在 Connection 的请求身份中渲染，确保账号专属浏览器存储键不会使用其他用户的 ID。[Connection](../../client/connection/README.zh.md#feishu-personal-workspaces) 负责账号认证。
+
 ## 目录
 
 - [使用本包](#use-this-package)

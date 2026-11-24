@@ -10,6 +10,8 @@ English | [中文](README.zh.md)
 
 `@deepseek-ai/dsh-api-workspace-controller` owns the Host `ctx.workspaceController` service and the generated Client `ctx.remote.workspace` namespace. Its Remote methods create, rename, remove, and reorder Workspaces, reorder Sessions within a Workspace, archive and unarchive Sessions from Workspace navigation, and follow the complete Workspace projection. Use it through API Gateway when a Client must change or follow Workspace navigation. The package also owns `ctx.directoryPickerController` and the generated `ctx.remote.directoryPicker` namespace, because the directory-picking seam it carries is abstract and never a Loader entry of its own.
 
+Feishu personal-space deployments expose only the account Workspace, reject Workspace creation, renaming, removal, and reordering, and authorize Session archive and ordering operations. [Connection](../../client/connection/README.md#feishu-personal-workspaces) owns the account policy.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

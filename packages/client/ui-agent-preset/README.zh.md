@@ -11,6 +11,8 @@ kind: "package-reference"
 
 使用本包可以为新的 Web GUI 会话选择 agent preset、在会话标题中查看当前 preset，并在设置中管理可用 preset。Agent 模式选择器默认显示；设置可以隐藏它，而不会改变运行中或历史会话。preset 在会话创建时即固定，因此更改选择或默认值只影响此后创建的会话。如果部署未提供任何 preset，这些控件保持隐藏，每个会话都使用宿主组装。
 
+飞书个人空间部署由部署方维护实例配置，浏览器本地偏好仍然可用。账号策略见 [Connection](../connection/README.zh.md#feishu-personal-workspaces)。
+
 ## 目录
 
 - [使用本包](#use-this-package)

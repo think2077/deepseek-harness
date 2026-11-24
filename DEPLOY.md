@@ -146,7 +146,8 @@ mkdir -p /opt/dsh-workspace
 | `DEEPSEEK_API_KEY` | 是 | DeepSeek API key，例如 `sk-xxx` |
 | `DSH_CLIENT_COMMIT_HASH` | 是 | build 时用的 7 位 commit hash（构建期需要，运行期非必需） |
 | `DSH_PERMISSION_MODE` | 否 | 设为 `danger-full-access` 可跳过默认审批，所有操作直接执行（仅信任环境使用） |
-| `DSH_WEB_LAUNCH_TOKEN` | 否 | **固定访问 token**。设置后每次启动 URL 里的 `?token=` 都不变，重启无需换 token；不设置则每次启动随机生成 |
+| `DSH_WEB_LAUNCH_TOKEN` | 否 | **固定访问 token**。设置后每次启动 URL 里的 `?token=` 都不变，重启无需换 token；不设置则每次启动随机生成。用飞书登录时不需要它（见第 9 节） |
+| `FEISHU_APP_SECRET` | 飞书模式必填 | 飞书自建应用的 App Secret，变量名由 patch 里的 `feishu.appSecretEnv` 指定。只放环境变量，不写进仓库文件（见第 9 节） |
 | `DSH_HOME` | 否 | Harness 用户目录，默认 `~/.dsh` |
 
 固定 token 示例：
@@ -280,6 +281,8 @@ EOF
 
 把 `server_name` 改成你的 IP 或域名。
 
+> 用飞书登录时必须在 HTTPS 下访问：登录 cookie 带 `Secure`，http 站点会落不下 cookie，表现为反复要求登录。证书可以在 Nginx 上加，也可以交给宝塔/云厂商开 HTTPS。
+
 ### 7.3 测试并重载
 
 ```
@@ -320,9 +323,116 @@ http://你的IP或域名/?token=xxx
 5. 让 agent 生成一个 Word 文件，点击产出文件，右侧预览 → header 右上角有下载图标 → 点击能下载
 6. 重启服务（`systemctl restart dsh-web`），再次打开根路径：设置过 `DSH_WEB_LAUNCH_TOKEN` 时 URL 不变、无需重新登录
 
+以上是固定 token 模式的检查项；飞书登录模式的检查项见第 9.6 节。
+
 ---
 
-## 9. 日常运维
+## 9. 飞书企业登录模式（多用户）
+
+第 5～8 节是「固定 token」的单人模式：谁拿到 URL 谁就能进。企业里多人使用时改用飞书登录，身份由飞书 OAuth 给出，每人一个固定工作区，只看得到自己的会话。
+
+### 9.1 两种模式对照
+
+| 模式 | 认证方式 | 适用场景 |
+| --- | --- | --- |
+| 固定 token | `?token=xxx` 换取 cookie | 单机、单人、内网演示 |
+| 飞书登录 | 飞书 OAuth 回调写入 cookie | 企业多人，无需分发 token |
+
+飞书模式下 `DSH_WEB_LAUNCH_TOKEN` 不再需要。
+
+### 9.2 飞书侧配置（open.feishu.cn 开发者后台）
+
+1. **创建应用**：开发者后台 → 创建企业自建应用，记下 App ID（`cli_xxx`）和 App Secret。
+2. **安全设置 → 重定向 URL**：填 `https://<你的域名>/auth/feishu/callback`。必须与 patch 里 `publicOrigin` 完全一致（协议、域名、端口、路径都要逐字符对齐），不一致时飞书会直接报 redirect_uri 错误。
+3. **权限管理**：`authen/v1/user_info` 的基础字段（`open_id`、`name`、`tenant_key`）不需要额外权限，登录即可拿到；需要邮箱、手机号时再另行申请。
+4. **可用范围**：把要使用的人或部门加进去，不在范围内的人点授权会被拒绝。
+5. **版本管理与发布**：创建版本 → 申请发布 → 企业管理员审核通过。这一步最容易被漏，未发布时前面配的可用范围和重定向 URL 都不会生效。
+6. **可选「网页应用」**：添加网页应用能力，桌面端主页填 `https://<你的域名>/`，这样在飞书客户端内打开时可以免确认直接跳转。
+
+### 9.3 服务端配置
+
+App Secret 只放环境变量，不进仓库：
+
+```
+install -m 600 /dev/null ~/.dsh/feishu.env
+printf 'export FEISHU_APP_SECRET=<App Secret>\n' > ~/.dsh/feishu.env
+```
+
+patch 文件（可放仓库根目录，示例 `./feishu.patch.yml`；仓库里已有一份开发用样例，指向 `http://127.0.0.1:3080`，生产按下面的模板改）：
+
+```
+- id: connection
+  config:
+    trustedHosts: ["dsh.example.com"]
+    feishu:
+      publicOrigin: https://dsh.example.com
+      appId: cli_xxxxxxxxxxxx
+      appSecretEnv: FEISHU_APP_SECRET
+      workspaceRoot: /opt/dsh-users
+      tenantKeys: ["<企业 tenant_key>"]
+```
+
+要点：
+
+- patch 的 `config` 是**整体替换**，不是深合并：`trustedHosts` 必须把这些值重新列全。
+- `appSecretEnv` 填的是**环境变量名**，不是密钥本身。
+- `publicOrigin` 必须是规范化 HTTPS 源（只有 `127.0.0.1` / `localhost` 这类回环允许 http），其 host:port 还必须在 `trustedHosts` 里。
+- `tenantKeys` 留空数组表示不限企业（仅开发用）；生产环境写死本企业的 `tenant_key`，避免外部企业账号登录。
+- `--patch` 覆盖层里不要用 `!!js` 表达式（只在 bundle 层生效），这些值直接写字面量。
+
+### 9.4 启动（systemd 改造）
+
+在第 6.2 节的服务文件上改两处：加一个 `Environment`，`ExecStart` 追加 `--patch`。
+
+```
+[Service]
+...
+Environment=FEISHU_APP_SECRET=cli_xxxxxxxxxxxx_secret
+EnvironmentFile=-/root/.dsh/feishu.env
+ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /opt/deepseek-harness/deepseek-harness/apps/cli/lib/bin.js \
+  --profile web --patch /opt/deepseek-harness/deepseek-harness/feishu.patch.yml \
+  --port 3080 --host 127.0.0.1
+```
+
+也可以把 `Environment=FEISHU_APP_SECRET=...` 换成 `EnvironmentFile=-/root/.dsh/feishu.env`，任选其一，别重复写。
+
+启动后日志里只打印：
+
+```
+dsh web: http://127.0.0.1:3080
+```
+
+没有 `?token=`，说明免登入口生效。如果出现 `entries did not activate` 并带 `connection`，看 9.7 的报错对照。
+
+### 9.5 登录流程与行为
+
+1. 浏览器访问 `https://<域名>/`，未登录时 303 到 `/auth/login`；
+2. 点「使用飞书登录」→ `/auth/feishu` → 303 跳 `https://accounts.feishu.cn/open-apis/authen/v1/authorize`，带 `state` 和一次性 `dsh-oauth` cookie；
+3. 飞书回调 `/auth/feishu/callback` 换取 token 并调用 `authen/v1/user_info`，写入 `dsh-user` cookie（HttpOnly、SameSite=Lax、默认 30 天），再 303 回 `/`；
+4. 每人固定工作区：首次登录自动创建 `<workspaceRoot>/<userId>`，标题为「<飞书姓名>的工作空间」，之后固定不变；界面不提供新建、改名、删除工作区；
+5. 会话隔离：只列自己的会话，用别人的 `sessionId` 访问一律 404；
+6. 知识库：公共 / 方案专属 / 候选三个部署级知识库全员共享；「项目知识库」只列当前账号自己的工作区，看不到别人的目录；
+7. 登出 `POST /auth/logout` 会删掉该浏览器会话的 cookie，并断开它的 WebSocket。
+
+### 9.6 验证
+
+```
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://dsh.example.com/
+# 303 https://dsh.example.com/auth/login
+
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://dsh.example.com/auth/feishu
+# 303 https://accounts.feishu.cn/open-apis/authen/v1/authorize?client_id=...&redirect_uri=...&state=...
+```
+
+再用浏览器完整走一遍登录：能看到「你的飞书姓名的工作空间」；换一个账号登录，看不到前一个账号的会话。
+
+### 9.7 零点击免登（可选）
+
+当前未登录时先停在 `/auth/login` 的按钮页。若要求飞书客户端内点开即进，可把未登录的 303 目标直接改成 `/auth/feishu`（改 `packages/client/connection/src/accounts.ts` 的 `authorizeIndex`）。代价是浏览器直连时也会直接跳授权页，没有落地说明页。
+
+---
+
+## 10. 日常运维
 
 ### 更新代码
 
@@ -348,6 +458,15 @@ systemctl restart dsh-web
 ```
 
 > 注意：若知识库已被业务使用（候选知识库有"待审核/已采纳"等状态），解压新包前先备份：`cp -r ~/.dsh/.agent-presets/solution-expert ~/.dsh/.agent-presets/solution-expert.bak`，避免覆盖运行时写入的数据。
+
+### 备份（飞书模式）
+
+```
+cp ~/.dsh/storages/web_accounts.json /backup/web_accounts-$(date +%F).json
+tar czf /backup/dsh-users-$(date +%F).tgz -C /opt dsh-users
+```
+
+`web_accounts.json` 里是 `users`（账号）、`web_sessions`（浏览器登录）、`session_owners`（会话归属）三张表；`workspaceRoot`（如 `/opt/dsh-users`）下是每个人的工作目录。要收回某人的访问，删掉 `users` 里对应的账号行即可，残留的登录和归属记录会在下次启动时自动清理。
 
 ### 查看日志
 
@@ -397,3 +516,11 @@ nginx -t && nginx -s reload
 | 左侧没有「解决方案专家」预设 | preset 目录缺失或 `preset.yml` 损坏 | 检查 `~/.dsh/.agent-presets/solution-expert/preset.yml` |
 | Nginx 报 "bind () to 0.0.0.0:80 failed" | 80 端口被占用 | `ss -tlnp \| grep :80` 查占用进程 |
 | WebSocket 连接失败 | Nginx 没配 Upgrade/Connection | 确认有 `proxy_set_header Upgrade $http_upgrade` |
+| 启动报 `missing Feishu secret environment variable <名字>` | `appSecretEnv` 填成了 App Secret 本身 | 改成环境变量名，并确认该变量已 `export` 或写进 systemd |
+| 启动报 `feishu.publicOrigin host "..." is not in trustedHosts` | patch 的 `trustedHosts` 没包含公网 host:port | 把 `publicOrigin` 的 host:port 加进 `trustedHosts`（注意 patch 是整体替换） |
+| 启动报 `publicOrigin must be a canonical HTTPS origin` | 写了 `http://` 且不是回环地址 | 生产用 https；本地调试才用 `http://127.0.0.1:3080` |
+| 飞书授权页报 redirect_uri 不匹配（如 20029） | 后台重定向 URL 与 `publicOrigin` 不一致 | 两处逐字符对齐，路径固定 `/auth/feishu/callback` |
+| 授权后 403「当前企业无权访问」 | `tenantKeys` 不含该账号所属企业 | 填正确的 `tenant_key`，或开发期先留空数组 |
+| 登录成功后刷新又要求登录 | 非 HTTPS 时 Secure cookie 落不下，或 Nginx 改了 Host 头 | 走 HTTPS，并保留 `proxy_set_header Host $host` |
+| 启动报 `Session ownership references a missing account` | 手动删过账号，残留登录/归属记录（旧版本代码） | 当前版本启动时会自动清理并打 warn；旧包需清 `~/.dsh/storages/web_accounts.json` 里对应行 |
+| 飞书模式下左侧「我的审核」「知识库」不见了 | 客户端插件被个人模式开关挡住 | 用当前源码构建（含 `ui-knowledge-base` 修复），并重启服务 |

@@ -232,8 +232,10 @@ export function WorkspacePicker({
   createWorkspace,
   useDirectoryFlow,
   renderSlot,
+  personalWorkspace,
   t,
 }: WorkspacePickerProps) {
+  if (personalWorkspace) return null
   return (
     <WorkspacePickFlow
       t={t}

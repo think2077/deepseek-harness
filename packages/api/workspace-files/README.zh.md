@@ -11,6 +11,8 @@ kind: "package-reference"
 
 使用本包可从 Web Client 预览 Session 文件系统允许读取的文件。它按页读取 UTF-8 文本、按有界窗口或完整文件读取原始字节、从基文件目录解析关联文件，并报告文件元数据。文件读取可以指向工作区外路径；目录列举与已埋点的文件系统观察仍限定于工作区。本服务不提供修改操作。
 
+飞书个人空间部署要求调用者拥有目标 Session，并将浏览器文件读取限制在个人目录内。[Connection](../../client/connection/README.zh.md#feishu-personal-workspaces) 说明共享进程的限制。
+
 ## 目录
 
 - [使用本包](#use-this-package)

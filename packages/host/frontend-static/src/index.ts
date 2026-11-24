@@ -101,7 +101,7 @@ export async function serveStatic(
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  res.writeHead(200, { 'content-type': type, ...(type === HTML_MIME ? { 'cache-control': 'private, no-store' } : {}) })
   res.end(body)
 }
 
@@ -137,7 +137,7 @@ export function apply(ctx: Context, config: Config): void {
       distRoot,
       distIndex,
       () => ctx.connection.authorizeIndex(req, res),
-      renderIndex,
+      () => ctx.connection.runRequest === undefined ? renderIndex() : ctx.connection.runRequest(req, renderIndex),
     )
   }), 'frontend-static: fallback seat')
 }

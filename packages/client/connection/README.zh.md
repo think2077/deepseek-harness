@@ -15,6 +15,7 @@ kind: "package-reference"
 
 - [使用本包](#use-this-package)
 - [浏览器认证与请求信任](#browser-authentication-and-request-trust)
+- [飞书个人工作空间](#feishu-personal-workspaces)
 - [Connection generation](#connection-generation)
 - [模型体验](#model-experience)
 - [已知限制与暂缓事项](#known-limitations-and-deferred-work)
@@ -37,6 +38,43 @@ kind: "package-reference"
 cookie 签名密钥是 `ctx.credentials` 中由 `client-connection/browser-session` 拥有的 grant 记录。本地提供方把它持久化到 `$DSH_HOME/.credentials.yaml`；`BrowserAuth` 在 Connection 激活期间加载或创建该记录，并把密钥留在内存中，因此请求认证同步执行。删除或替换该记录会在下一次 Connection 激活时生效。cookie 携带绝对签发与过期区间，`cookieMaxAgeDays` 默认设为 30 天，并在确定性名称与签名 payload 中同时绑定规范化 hostname 和 port。它是 host-only、`Path=/`、`HttpOnly`、`SameSite=Strict`；随附服务器使用 loopback HTTP，因此刻意不设置 `Secure`。
 
 认证之前，每个请求仍经过 `src/api-request-trust.ts`。其 `Host` 必须是 loopback，或与 `trustedHosts` 条目匹配：带端口的 `host:port` 精确匹配，不带端口的条目匹配任意端口，两侧均经 WHATWG 归一化。若附带 `Origin`，它必须等于该 Host；`sec-fetch-site: cross-site` 一律拒绝。畸形配置 authority 会让插件加载失败。这些检查防御 DNS rebinding 与跨站浏览器请求，绝不建立身份。Host/Origin 校验失败返回 403；Host 可信但未认证的请求返回 401。`dsh web --host 0.0.0.0` 仍不受支持。决策记录：[浏览器请求信任](../../../.agents/notes/implemented/architecture/2026-07-28-api-browser-trust-boundary.zh.md)与[浏览器令牌认证](../../../.agents/notes/implemented/architecture/2026-08-24-browser-token-authentication.zh.md)。
+
+
+<a id="feishu-personal-workspaces"></a>
+## 飞书个人工作空间
+
+在显式 Web profile overlay 中设置 `connection.config.feishu`，即可用飞书登录替代本地启动令牌认证。此模式需要 profile 的 storage domain、Session 持久化、Workspace registry 和 Web server。所有用户共用一个 Harness；API 归属和浏览器展示按用户隔离，工具和 shell 命令仍共享 Host 操作系统身份。没有归属记录的已有 Session 不可见，也不能通过 API 认领。
+
+创建飞书应用，启用网页登录能力，允许目标成员访问，并将 `https://harness.example.com/auth/feishu/callback` 注册为重定向 URL。通过服务端环境变量 `FEISHU_APP_SECRET` 提供应用密钥。服务端使用[飞书 OAuth 令牌 API](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/authentication-management/access-token/get-user-access-token-v3)，读取身份后丢弃飞书令牌，不申请离线访问权限。
+
+将此 overlay 保存为 `/absolute/feishu.patch.yml`，替换示例 origin、应用 ID 和目录：
+
+```yaml
+- id: connection
+  config:
+    trustedHosts: [harness.example.com]
+    feishu:
+      publicOrigin: https://harness.example.com
+      appId: cli_your_application
+      appSecretEnv: FEISHU_APP_SECRET
+      workspaceRoot: /var/lib/dsh/workspaces
+```
+
+使用 `pnpm dsh --profile web --patch /absolute/feishu.patch.yml` 启动。由反向代理终止 HTTPS，将 HTTP 和 WebSocket 请求转发到 loopback 服务，并保留原始 `Host` 和 `Origin` 请求头。`publicOrigin` 必须为规范的 HTTPS origin，其精确 authority 必须出现在 `trustedHosts` 中；开发时允许 loopback HTTP。任何转发请求头都不建立用户身份。此模式下打印的 URL 不携带启动令牌。
+
+`GET /auth/login` 提供飞书登录。回调校验绑定 HttpOnly 浏览器 Cookie 的短时、一次性 state，按配置检查企业白名单，并创建或复用稳定的内部账号和固定目录。内部 ID 由应用、企业和飞书 open id 派生；显示名变化只更新 Workspace 标题，不移动文件。侧边栏只展示该用户的 Workspace 和 Session，移除 Workspace 创建和管理入口，并链接到 `/auth/account` 提供退出操作。模型、插件清单、知识库管理和预设编写由部署方维护；主题和语言偏好保留在浏览器本地。
+
+| 设置 | 默认值 | 含义 |
+|---|---|---|
+| `tenantKeys` | `[]` | 可选企业白名单；省略或留空时允许该飞书应用授权的用户登录 |
+| `sessionMaxAgeDays` | 7 | 浏览器登录的绝对有效期，1–24 天 |
+| `stateMaxAgeSeconds` | 300 | OAuth 尝试有效期 |
+| `maxPendingLogins` | 1000 | 返回 HTTP 429 前允许的并发待完成尝试数 |
+| `requestTimeoutMs` | 15000 | 每个飞书 HTTP 请求的超时 |
+
+默认 JSON 后端将 `web_accounts` domain 保存在 `$DSH_HOME/storages/web_accounts.json`：`users` 保存飞书身份和显示名，`web_sessions` 保存登录令牌摘要和过期时间，`session_owners` 将 Session ID 映射到内部用户 ID。Workspace domain 保留目录记录和成员关系；Session JSONL 和附件存储沿用现有位置。账号 domain 不保存原始浏览器登录令牌、应用密钥或飞书令牌。启动和成功登录时删除过期浏览器记录；OAuth 尝试仅存在于内存中，重启后失效。
+
+浏览器 Session 创建前先持久保留归属。创建失败可能留下不可见的预留记录，供同一用户重试，其他用户不能认领。Fork 为源 Session 的已认证用户预留新 ID，后台子 Session 继承持久父 Session 的归属。HTTP 读取、命令、文件、导出、搜索结果、控制基线和选定的 Remote 事件在交付前执行过滤或授权。退出删除浏览器记录并终止其 WebSocket 连接，不取消运行中的 Agent。浏览器存储键包含内部用户 ID。此机制隔离应用访问，不提供文件系统或进程约束。
 
 <a id="connection-generation"></a>
 ## Connection generation
@@ -64,8 +102,8 @@ API Gateway Client 把内部 `$events` 逻辑流注册为唯一 generation sourc
 <a id="known-limitations-and-deferred-work"></a>
 
 - **缓冲型 `/api` 路由会把每个请求体保留在内存里**：`maxRequestBodyBytes`（默认 300 MiB，按默认 200 MiB 图片总量上限经 base64 膨胀加信封余量得出）限制普通图片与 RPC 信封。显式启用的流式路由接收带背压的分块并绕过总量上限；路由实现负责持久化、取消与存储配额。
-- **浏览器 cookie 不带 `Secure`**：当前随产品提供的传输方式是 loopback HTTP；若部署经明文网络暴露同一 authority，bearer cookie 可能在传输中泄露。
-- **没有 logout 操作**：清除浏览器 cookie 会结束单个浏览器会话；删除 owner 凭据记录并重启 `dsh` 会撤销全部会话。
+- **本地模式的浏览器 cookie 不带 `Secure`**：当前随产品提供的传输方式是 loopback HTTP；若部署经明文网络暴露同一 authority，bearer cookie 可能在传输中泄露。
+- **本地令牌模式没有 logout 操作**：清除浏览器 cookie 会结束单个浏览器会话；删除 owner 凭据记录并重启 `dsh` 会撤销全部会话。
 
 
 <a id="dev-note"></a>

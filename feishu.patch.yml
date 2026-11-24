@@ -1,0 +1,17 @@
+# Dev-only Feishu login overlay. Load it with: --patch ./feishu.patch.yml
+#
+# The App Secret never lives in this file: it is read from the environment
+# variable named by `appSecretEnv` (see ~/.dsh/feishu.env, mode 0600).
+- id: connection
+  config:
+    # A patch replaces `config` wholesale, so this list must restate every
+    # authority this deployment answers to (dev: loopback + port).
+    trustedHosts: ["127.0.0.1:3080"]
+    feishu:
+      publicOrigin: http://127.0.0.1:3080
+      appId: cli_aa1d7964e5781bc2
+      appSecretEnv: FEISHU_APP_SECRET
+      workspaceRoot: /Users/think/.dsh/workspaces
+      # Empty list accepts any tenant that can authorize this app (dev only).
+      # Production: pin your tenant_key here.
+      tenantKeys: []

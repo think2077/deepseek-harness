@@ -30,6 +30,8 @@ export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
 
 /** Contribute the lazy inventory tab to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true) return
+
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugin-inventory: dictionaries')
 
   const t = ctx.locale.bind(NS)

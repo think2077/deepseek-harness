@@ -11,6 +11,8 @@ kind: "package-reference"
 
 `dsh-session-log-export` 让 Web 界面可以下载会话的完整历史：Session Header 更多操作按钮下的 `下载 Session 日志` 菜单项与 `/export` 斜杠命令都会把会话树——会话本身、其子会话与附件——作为 ZIP 交给浏览器下载。本包拥有 Host 归档流、经过认证的 Fetch 路由以及浏览器控件和反馈。下载目标位置由浏览器选择。设置与用法在前，随后说明实现细节。
 
+飞书个人空间下载要求调用者拥有根 Session，并排除没有匹配持久归属的后代。[Connection](../../client/connection/README.zh.md#feishu-personal-workspaces) 负责浏览器认证和共享 Fetch 授权。
+
 ## 目录
 
 - [使用本包](#use-this-package)

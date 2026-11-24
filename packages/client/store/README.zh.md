@@ -10,6 +10,8 @@ kind: "package-library"
 
 供 Client 控制器与 renderer 适配器共用的不依赖 React 的 observable 和快照存储基础原语。本包负责同步与 animation-frame 发布、基于 Immer 的更新、浅比较和可选的浏览器持久化；React 钩子的构造仍属于 `@deepseek-ai/dsh-client-ui-renderer`。当 Client 状态必须在不依赖 React 的情况下发布稳定快照时，请使用它。
 
+当服务端页面携带飞书账号 ID 时，持久浏览器键在读取、写入和删除时都添加该 ID 前缀。[Connection](../connection/README.zh.md#feishu-personal-workspaces) 负责经过认证的页面注入。
+
 ## 目录
 
 - [模型体验](#model-experience)

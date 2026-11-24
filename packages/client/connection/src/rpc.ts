@@ -165,6 +165,14 @@ export interface HostConnectionRpc {
 export interface HostConnectionHandle {
   /** Generic RPC channel registry. */
   readonly rpc: HostConnectionRpc
+  /**
+   * Execute a carrier operation under its authenticated browser identity.
+   * @param request - original browser headers.
+   * @param operation - request or stream-iterator operation.
+   * @returns operation result.
+   */
+  runRequest?<T>(request: ConnectionTrustRequest, operation: () => T): T
+
   /** Exact Fetch routes for streaming or browser-native responses. */
   readonly fetch: HostConnectionFetch
 

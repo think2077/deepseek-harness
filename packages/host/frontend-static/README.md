@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Serve the built Web shell to browsers from its configured distribution directory. The root and configured index path render the bootstrapped index; existing assets are served directly, while missing or non-file paths return 404, traversal returns 403, and unsupported methods return 405. Index access requires a valid process token or browser cookie, but static assets remain public. Only one instance can handle unmatched routes at a time; a second activation fails, and unloading the active instance makes unmatched requests return 404.
 
+Authenticated personal-space index rendering runs inside Connection’s request identity so account-specific browser storage keys never use another user’s id. [Connection](../../client/connection/README.md#feishu-personal-workspaces) owns account authentication.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

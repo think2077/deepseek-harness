@@ -71,6 +71,7 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
+  const personalWorkspace = Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true
   const sessions = ctx.get('sessions') as ISessions
   const workspaces = ctx.get('workspaces') as IWorkspaces
   const uiWorkspace = new UiWorkspaceService(
@@ -87,7 +88,7 @@ export function apply(ctx: Context): void {
   // Stable per-surface occupancy sources (the renderer's hook cache keys by
   // source identity): true while the surface's directory-flow hole is filled.
   const flowSource = (hole: 'sidebar.workspaces.directoryFlow' | 'conversation.hero.workspace.directoryFlow'): HostObservable<boolean> => ({
-    getSnapshot: () => ctx.slots.entries(hole).length > 0,
+    getSnapshot: () => !personalWorkspace && ctx.slots.entries(hole).length > 0,
     subscribe: listener => ctx.slots.subscribe(hole, listener),
   })
   const browserFlowSource = flowSource('sidebar.workspaces.directoryFlow')
@@ -100,6 +101,7 @@ export function apply(ctx: Context): void {
     uiWorkspace.openSession(sessionId)
   }
   const browserInjected = (): WorkspaceBrowserInjected => ({
+    personalWorkspace,
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId) => { uiWorkspace.startSession(workspaceId) },
@@ -130,6 +132,7 @@ export function apply(ctx: Context): void {
     hooks: { directoryFlow: browserFlowSource, hostInfo },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
+    personalWorkspace,
     createWorkspace: input => workspaces.create(input),
     hooks: { directoryFlow: pickerFlowSource },
   })

@@ -49,6 +49,9 @@
     },
     {
       "path": "../../session/session-title"
+    },
+    {
+      "path": "../../client/connection/tsconfig.host.json"
     }
   ]
 }

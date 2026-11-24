@@ -11,6 +11,7 @@ import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
+import type { WebAccounts } from './accounts.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
   ConnectionIndexRequest,
@@ -70,7 +71,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
-    private readonly browserAuth: BrowserAuth,
+    private readonly browserAuth: BrowserAuth | WebAccounts,
   ) {
     super(ctx, 'connection')
   }
@@ -106,7 +107,17 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
-    return this.browserAuth.authenticatedUrl(baseUrl)
+    return 'authenticatedUrl' in this.browserAuth ? this.browserAuth.authenticatedUrl(baseUrl) : this.browserAuth.config.publicOrigin
+  }
+
+  /**
+   * Run one carrier operation with its authenticated request identity.
+   * @param request - original browser request headers.
+   * @param operation - request or iterator operation.
+   * @returns the operation result.
+   */
+  runRequest<T>(request: ConnectionTrustRequest, operation: () => T): T {
+    return 'run' in this.browserAuth ? this.browserAuth.run(request, operation) : operation()
   }
 
   /**
@@ -123,7 +134,14 @@ export class HostConnectionService extends Service implements HostConnectionHand
         return route?.methods.has(method) === true ? route.requestBody : 'buffered'
       },
       fetch: (request) => {
-        const pathname = new URL(request.url).pathname
+        const requestUrl = new URL(request.url)
+        const pathname = requestUrl.pathname
+        const account = this.ctx.get('webAccounts')
+        const sessionId = requestUrl.searchParams.get('sessionId')
+        if (account !== undefined && sessionId !== null
+          && !account.ownsSession(sessionId as import('@deepseek-ai/dsh-session').SessionId)) {
+          return Promise.resolve(new Response('session not found', { status: 404 }))
+        }
         const route = this.fetchRoutes.get(pathname)
         if (route?.methods.has(request.method) === true) return route.fetch(request)
         const endpoint = endpointFromPath(channel, pathname)
@@ -172,7 +190,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
-        await bridge(req, res, fetchHandler)
+        await this.runRequest(req, () => bridge(req, res, fetchHandler))
       },
     }
     return owner.effect(

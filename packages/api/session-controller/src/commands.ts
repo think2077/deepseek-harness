@@ -1,6 +1,7 @@
 /** Session commands whose activation policy is explicit at each Remote method. */
 
 import { randomUUID } from 'node:crypto'
+import type {} from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
@@ -85,6 +86,17 @@ export class SessionCommandController {
    * @returns the Session identity and resolved preset when configured.
    */
   async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
+    const accounts = this.ctx.get('webAccounts')
+    if (accounts !== undefined) {
+      const fixed = accounts.workspace()
+      if ((request.workspaceId !== undefined && request.workspaceId !== fixed.id)
+        || (request.cwd !== undefined && request.cwd !== fixed.path)) accounts.rejectWorkspaceMutation()
+      request = {
+        workspaceId: fixed.id,
+        ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
+        ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
+      }
+    }
     if (request.workspaceId !== undefined && request.cwd !== undefined) {
       throw new RemoteError('gateway/bad-request', 'session.create accepts workspaceId or cwd, not both', {})
     }
@@ -99,6 +111,7 @@ export class SessionCommandController {
       }
     }
     const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
+    await accounts?.reserveSession(sessionId)
     let adopted: Agent
     try {
       adopted = await this.agents.ensureSession(
@@ -131,6 +144,7 @@ export class SessionCommandController {
    * @returns the normalized selection installed for the Session.
    */
   async selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     const agent = await this.resolveAgent(request.sessionId)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
@@ -150,7 +164,7 @@ export class SessionCommandController {
         }
         this.agents.selectForNextRequest(agent, selected)
         try {
-          await this.ctx.agentDefaultModel.saveSelection(selected)
+          if (this.ctx.get('webAccounts') === undefined) await this.ctx.agentDefaultModel.saveSelection(selected)
         } catch (error) {
           this.ctx.logger.warn(
             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
@@ -174,6 +188,7 @@ export class SessionCommandController {
    * @returns the accepted title and durable event sequence.
    */
   async rename(request: SessionRenameRequest): Promise<SessionRenameValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     const agent = await this.resolveAgent(request.sessionId)
     const titles = this.ctx.get('sessionTitle')
     if (titles === undefined) {
@@ -200,6 +215,7 @@ export class SessionCommandController {
    * @returns the new Session identity.
    */
   async fork(request: SessionForkRequest): Promise<SessionForkValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     let atSeq: ReturnType<typeof SessionSeq> | undefined
     try {
       atSeq = request.atSeq === undefined ? undefined : SessionSeq(request.atSeq)
@@ -252,6 +268,7 @@ export class SessionCommandController {
       )
     }
     const childId = brandString<SessionId>(`session-${randomUUID()}`)
+    await this.ctx.get('webAccounts')?.reserveSession(childId)
     const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
     try {
       const { provider, model } = this.ctx.agentDefaultModel.currentSelection()
@@ -297,6 +314,7 @@ export class SessionCommandController {
    * @returns acknowledgement that the Agent accepted the prompt.
    */
   async prompt(request: SessionPromptRequest): Promise<SessionPromptValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     if (!hasPromptContent(request.content)) {
       throw new RemoteError(
         'gateway/bad-request',
@@ -378,6 +396,7 @@ export class SessionCommandController {
    * @returns the durable attachment reference and base64-encoded bytes.
    */
   async attachment(request: SessionAttachmentRequest): Promise<SessionAttachmentValue> {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     let source: SessionReadState
     try {
       source = await this.readSessionState(request.sessionId)
@@ -419,6 +438,7 @@ export class SessionCommandController {
    * @returns acknowledgement that the queue mutation was applied.
    */
   updateQueue(request: SessionUpdateQueueRequest): SessionUpdateQueueValue {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     if (request.action.kind === 'edit') {
       if (request.action.content.some(block => block.type !== 'text')) {
         throw new RemoteError(
@@ -492,6 +512,7 @@ export class SessionCommandController {
    * @returns acknowledgement that cancellation was requested.
    */
   cancel(request: SessionCancelRequest): SessionCancelValue {
+    this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     const agent = this.ctx.agents.get(request.sessionId)
     if (agent === undefined) {
       throw new RemoteError(

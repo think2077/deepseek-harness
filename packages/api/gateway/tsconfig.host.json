@@ -36,6 +36,9 @@
     },
     {
       "path": "../../util/timeout"
+    },
+    {
+      "path": "../../core/session"
     }
   ]
 }

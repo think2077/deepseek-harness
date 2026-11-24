@@ -169,7 +169,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionPendingInteraction' | 'startSession' | 'open' | 'forkSession'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
+  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo' | 'personalWorkspace'
 > & {
   /** Always-mounted Session list snapshot. */
   list: SessionListState
@@ -212,7 +212,7 @@ function SessionTree({
   insertWorkspaceBefore,
   groupExpansion, setGroupExpanded,
   setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed,
+  revealSessionId, onSessionRevealed, personalWorkspace,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const pendingInteractions = useSessionPendingInteraction(s => s)
@@ -417,8 +417,8 @@ function SessionTree({
                     startSession(group.workspaceId)
                   }
                 }}
-                drag={workspaceDragProps}
-                actions={group.workspaceId === undefined
+                drag={personalWorkspace ? undefined : workspaceDragProps}
+                actions={personalWorkspace || group.workspaceId === undefined
                   ? undefined
                   : {
                     rename: () => {
@@ -715,6 +715,7 @@ export function WorkspaceBrowser({
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  personalWorkspace,
   renderSlot,
   t,
 }: WorkspaceBrowserProps) {
@@ -727,7 +728,7 @@ export function WorkspaceBrowser({
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
-  const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
+  const directoryFlowAvailable = useDirectoryFlow(occupied => occupied) && !personalWorkspace
   const groupBy = useStore(s => s.groupBy)
   const orderBy = useStore(s => s.orderBy)
   const groupExpansion = useStore(s => s.groupExpansion)
@@ -1104,6 +1105,7 @@ export function WorkspaceBrowser({
             </div>
           </div>
         )}
+        {wide && personalWorkspace && <a href="/auth/account">{t('account.manage')}</a>}
         <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
           {wide && (
             <ViewOptionsMenu
@@ -1205,6 +1207,7 @@ export function WorkspaceBrowser({
             )
             : (
               <SessionTree
+                personalWorkspace={personalWorkspace === true}
                 usePanelInfo={usePanelInfo}
                 list={list}
                 useSessionPendingInteraction={useSessionPendingInteraction}

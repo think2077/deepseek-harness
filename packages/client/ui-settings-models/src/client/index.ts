@@ -73,6 +73,8 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') === true) return
+
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)

@@ -1,5 +1,7 @@
 /** Live Session queue, jobs, and projection state with reconnect baselines. */
 
+import type {} from '@deepseek-ai/dsh-client-connection'
+import type { WebUserId } from '@deepseek-ai/dsh-client-connection'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, InboxState } from '@deepseek-ai/dsh-agent'
 import { Deque } from '@deepseek-ai/dsh-deque'
@@ -19,7 +21,7 @@ import type {
 
 /** Owns the Host-wide Session control stream. */
 export class SessionControlController {
-  private readonly streams = new Set<ControlQueue>()
+  private readonly streams = new Map<ControlQueue, WebUserId | undefined>()
 
   /** @param ctx - Host context carrying live Agent, projection, and jobs services. */
   constructor(private readonly ctx: Context) {
@@ -48,7 +50,7 @@ export class SessionControlController {
       if (jobs.length > 0) this.broadcast({ type: 'jobs', sessionId: session.id, jobs })
     })
     ctx.effect(() => () => {
-      for (const stream of this.streams) stream.end()
+      for (const stream of this.streams.keys()) stream.end()
       this.streams.clear()
     }, 'session-controller.control')
   }
@@ -61,7 +63,7 @@ export class SessionControlController {
   async *control(signal: AbortSignal): AsyncIterable<SessionControlFrame> {
     signal.throwIfAborted()
     const queue = new ControlQueue()
-    this.streams.add(queue)
+    this.streams.set(queue, this.ctx.get('webAccounts')?.userId())
     try {
       yield { type: 'baseline', value: this.baseline() }
       yield* queue.iterate(signal)
@@ -72,7 +74,7 @@ export class SessionControlController {
   }
 
   private baseline(): SessionControlBaseline {
-    const sessions = this.ctx.sessions.list()
+    const sessions = this.ctx.sessions.list().filter(session => this.ctx.get('webAccounts')?.ownsSession(session.id) !== false)
     const queues = Object.create(null) as Record<SessionId, readonly SessionQueuedItem[]>
     const jobs = Object.create(null) as Record<SessionId, readonly SessionJob[]>
     for (const session of sessions) {
@@ -122,7 +124,11 @@ export class SessionControlController {
   }
 
   private broadcast(frame: SessionControlFrame): void {
-    for (const stream of this.streams) stream.push(frame)
+    for (const [stream, userId] of this.streams) {
+      if (userId !== undefined && ('sessionId' in frame
+        ? this.ctx.get('webAccounts')?.ownerOf(frame.sessionId) !== userId : true)) continue
+      stream.push(frame)
+    }
   }
 }
 

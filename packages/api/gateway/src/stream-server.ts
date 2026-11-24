@@ -44,17 +44,35 @@ export class RemoteStreamMuxServer {
    * @param req - authenticated HTTP upgrade request.
    * @param socket - carrier socket transferred to the WebSocket server.
    * @param head - bytes already read after the HTTP upgrade headers.
+   * @param open - request-bound dispatcher, when browser identity is required.
+   * @param signal - login lifetime terminating this physical connection.
+   * @returns completion after the socket and its iterators close.
    */
-  handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+  handleUpgrade(
+    req: IncomingMessage, socket: Duplex, head: Buffer,
+    open: RemoteStreamOpener = this.open, signal?: AbortSignal,
+  ): Promise<void> {
+    const completion = Promise.withResolvers<void>()
+    const rejected = (): void => { completion.resolve() }
+    socket.once('close', rejected)
     this.server.handleUpgrade(req, socket, head, (websocket) => {
+      socket.removeListener('close', rejected)
       this.missedHeartbeats.set(websocket, 0)
       websocket.on('pong', () => { this.missedHeartbeats.set(websocket, 0) })
       this.startHeartbeat()
-      const connection = new RemoteStreamMuxConnection(websocket, this.open, this.failure)
+      const connection = new RemoteStreamMuxConnection(websocket, open, this.failure)
       const done = connection.run()
       this.connections.add(done)
-      void done.then(() => { this.connections.delete(done) })
+      const abort = (): void => { websocket.terminate() }
+      signal?.addEventListener('abort', abort, { once: true })
+      if (signal?.aborted === true) abort()
+      void done.then(() => {
+        this.connections.delete(done)
+        signal?.removeEventListener('abort', abort)
+        completion.resolve()
+      }, completion.reject)
     })
+    return completion.promise
   }
 
   /** Terminate all sockets and wait until every iterator has returned. */

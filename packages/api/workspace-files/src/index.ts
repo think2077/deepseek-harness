@@ -1,3 +1,4 @@
+import type {} from '@deepseek-ai/dsh-client-connection'
 /**
  * Workspace file service: read-only file previews, workspace directory
  * listings, and the filesystem-observation change feed, exposed as
@@ -220,6 +221,7 @@ export class WorkspaceFiles extends TypertRemoteService {
         hostTypeSymbol: '@deepseek-ai/dsh-api-workspace-files#WorkspaceFileScope',
         wireTypeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
         resolve: async (sessionId) => {
+          scope.get('webAccounts')?.assertSession(sessionId)
           const live = scope.sessions.get(sessionId)?.header
           const stored = live === undefined
             ? await scope.get('sessionPersistence')?.stat(sessionId)
@@ -250,6 +252,7 @@ export class WorkspaceFiles extends TypertRemoteService {
             return new Response('missing sessionId or path query parameter', { status: 400 })
           }
           const sessionId = sessionIdValue as SessionId
+          if (connectionScope.get('webAccounts')?.ownsSession(sessionId) === false) return new Response('session not found', { status: 404 })
           const live = connectionScope.sessions.get(sessionId)?.header
           const stored = live === undefined
             ? await connectionScope.get('sessionPersistence')?.stat(sessionId)
@@ -438,6 +441,7 @@ export class WorkspaceFiles extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   changes(workspaceFileScope: WorkspaceFileScope, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame> {
+    this.ctx.get('webAccounts')?.assertSession(workspaceFileScope.sessionId)
     return this.feed.follow(workspaceFileScope.workspaceRoot, signal)
   }
 
@@ -506,11 +510,15 @@ export class WorkspaceFiles extends TypertRemoteService {
     path: string,
     signal: AbortSignal,
   ): Promise<{ target: FsTarget; info: FsInfo }> {
+    this.ctx.get('webAccounts')?.assertSession(workspaceFileScope.sessionId)
     const { workspaceRoot, entry } = await this.inspect(workspaceFileScope, path, signal)
     if (entry.type !== 'file') {
       throw new RemoteError('workspace-file/not-regular-file', `"${path}" is a ${entry.type}`, { path, kind: entry.type })
     }
     const target = await this.ctx.fs.resolve(path, { cwd: workspaceRoot, signal })
+    if (this.ctx.get('webAccounts')?.ownsPath(target.displayPath) === false) {
+      throw new RemoteError('workspace-file/not-found', 'file not found', { path })
+    }
     const info = await this.ctx.fs.stat(target, signal)
     if (info === undefined) {
       throw new RemoteError('workspace-file/not-found', `no entry at "${path}"`, { path })

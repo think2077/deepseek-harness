@@ -389,6 +389,8 @@ export type Config = LocalConfig
 ```ts config-catalog
 /** Browser authentication, request limits, and connection recovery configuration. */
 export interface ConnectionConfig {
+  /** Opt-in Feishu accounts with one fixed personal Workspace per user. */
+  feishu?: FeishuConfig | undefined
   /** Browser recovery timing, injected into each served page. */
   recovery?: ConnectionRecoveryConfig
   /**
@@ -404,6 +406,28 @@ export interface ConnectionConfig {
   cookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
+}
+
+/** Feishu login and fixed personal workspace deployment settings. */
+export interface FeishuConfig {
+  /** Canonical public HTTPS origin; loopback HTTP is accepted for development. */
+  publicOrigin: string
+  /** Feishu application identifier. */
+  appId: string
+  /** Environment variable containing the server-side application secret. */
+  appSecretEnv: string
+  /** Optional enterprise allowlist; omitted or empty permits every user authorized by this Feishu application. */
+  tenantKeys?: string[]
+  /** Absolute parent directory for internally named user directories. */
+  workspaceRoot: string
+  /** Absolute login lifetime in days. */
+  sessionMaxAgeDays: number
+  /** OAuth attempt lifetime in seconds. */
+  stateMaxAgeSeconds: number
+  /** Maximum simultaneous pending login attempts. */
+  maxPendingLogins: number
+  /** Deadline for each Feishu HTTP request in milliseconds. */
+  requestTimeoutMs: number
 }
 
 /** Timing for generation readiness and automatic reconnection. */
@@ -3694,6 +3718,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-tool`（[`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-trajectory`（[`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-user-questions`（[`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-workbench` ([`packages/client/ui-workbench/src/index.ts`](../packages/client/ui-workbench/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-workflow-run`（[`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-workspace`（[`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts)）
 - `@deepseek-ai/dsh-command-compact` — 需要 `commands` · `compact`（[`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts)）

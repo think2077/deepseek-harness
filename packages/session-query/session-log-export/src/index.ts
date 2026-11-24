@@ -1,3 +1,4 @@
+import type {} from '@deepseek-ai/dsh-client-connection'
 /** Session-log download command and Host-owned streaming route. */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -102,7 +103,7 @@ export function apply(ctx: Context, config: Config = {}): void {
 }
 
 function connectionOf(ctx: Context): SessionLogConnection {
-  return Reflect.get(ctx, 'connection') as SessionLogConnection
+  return Reflect.get(ctx, 'connection')
 }
 
 async function sessionLogExportResponse(
@@ -128,7 +129,10 @@ async function sessionLogExportResponse(
       { status: 500 },
     )
   }
+  const accounts = ctx.get('webAccounts')
+  const userId = accounts?.userId()
   const ready: SessionLogExportReady = {
+    ...(accounts === undefined ? {} : { canReadSession: (id: SessionId) => accounts.ownerOf(id) === userId }),
     sessionQuery: deps.sessionQuery,
     sessionPersistence: deps.sessionPersistence,
     attachments: deps.attachments,

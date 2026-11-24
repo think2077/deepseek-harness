@@ -112,6 +112,15 @@ function rerender(b: ReturnType<typeof mount>, overrides: Partial<WorkspaceBrows
 }
 
 describe('WorkspaceBrowser', () => {
+  it('keeps the personal Workspace visible without add, management, or dragging controls', () => {
+    mount({ personalWorkspace: true, useWorkspaces: hook(workspaceState([workspace('personal', [], '张三的工作空间')])) })
+    expect(screen.getByText('张三的工作空间')).toBeDefined()
+    expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '工作区“张三的工作空间”的操作' })).toBeNull()
+    expect(screen.getByRole('link', { name: '账号' }).getAttribute('href')).toBe('/auth/account')
+    expect(screen.getAllByRole('treeitem').some(row => row.getAttribute('draggable') === 'true')).toBe(false)
+  })
+
   it.each(['workspace', 'flat', 'ungrouped'] as const)('keeps %s recency independent of arrival order and saved manual positions', (mode) => {
     localStorage.clear()
     const preferences = createWorkspaceViewStore().create()

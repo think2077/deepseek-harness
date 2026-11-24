@@ -73,7 +73,7 @@ export function apply(ctx: ClientContext): void {
   // locale/change re-registration wiring.
   const t = ctx.locale.bind(NS)
   // The shared SettingsScope mirror updates after document commits and reconnects.
-  const documentController = ctx.remote.$host.isLoopback
+  const documentController = ctx.remote.$host.isLoopback && Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') !== true
     ? new SettingsDocumentStore(ctx, ctx.settingsScope.describe())
     : undefined
   const documentInjected = documentController === undefined

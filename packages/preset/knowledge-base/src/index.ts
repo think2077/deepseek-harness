@@ -7,11 +7,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
+import type { WebAccounts } from '@deepseek-ai/dsh-client-connection'
 import { expandHomePath } from '@deepseek-ai/dsh-home-paths'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-workspace'
+import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import { parse, parseDocument } from 'yaml'
 import { z as zod } from 'zod'
 import type {
@@ -793,14 +794,44 @@ export class KnowledgeBase extends TypertRemoteService {
   }
 
   private roots(): readonly ResolvedRoot[] {
-    const projects = this.ctx.workspaceRegistry.list().map(workspace => ({
+    return [...this.configuredRoots, ...this.projectRoots()]
+  }
+
+  /**
+   * Project roots of the Workspaces this caller may see: a browser-account
+   * deployment narrows them to the caller's own fixed Workspace, so a shared
+   * Host never lists another person's directory as a knowledge project.
+   * @returns one read-only project root per visible Workspace.
+   */
+  private projectRoots(): readonly ResolvedRoot[] {
+    const accounts = this.ctx.get('webAccounts')
+    const workspaces = accounts === undefined
+      ? this.ctx.workspaceRegistry.list()
+      : this.ownedWorkspaces(accounts)
+    return workspaces.map(workspace => ({
       id: `project-${workspace.id}`,
       label: workspace.title,
       kind: 'project' as const,
       writable: false,
       path: resolve(workspace.path, this.projectKnowledgeDirectory),
     }))
-    return [...this.configuredRoots, ...projects]
+  }
+
+  /**
+   * Resolve the Workspace owned by the account attached to the current request.
+   * Calls without an identity (background or host-plane callers) see none, so
+   * personal knowledge is never exposed by accident.
+   * @param accounts - browser-account service owning the personal Workspace.
+   * @returns the caller's Workspace only, or an empty list without identity.
+   */
+  private ownedWorkspaces(accounts: WebAccounts): readonly Workspace[] {
+    let own: Workspace
+    try {
+      own = accounts.workspace()
+    } catch {
+      return []
+    }
+    return this.ctx.workspaceRegistry.list().filter(workspace => workspace.path === own.path)
   }
 }
 

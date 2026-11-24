@@ -210,7 +210,7 @@ export function apply(ctx: ClientContext): void {
 
   // Ordered after Models: choosing a model is routine, and composing an
   // agent is the deployment-shaping act behind it.
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
+  if (Reflect.get(globalThis, '__DSH_PERSONAL_WORKSPACE__') !== true) ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'agent-presets',
     order: 20,

@@ -197,7 +197,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/api/gateway/src/index.ts:119`](../packages/api/gateway/src/index.ts)
+Source: [`packages/api/gateway/src/index.ts:122`](../packages/api/gateway/src/index.ts)
 
 <a id="deepseek-aidsh-api-session-controller"></a>
 
@@ -294,7 +294,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/api/workspace-files/src/index.ts:84`](../packages/api/workspace-files/src/index.ts)
+Source: [`packages/api/workspace-files/src/index.ts:85`](../packages/api/workspace-files/src/index.ts)
 
 <a id="deepseek-aidsh-attachment-local"></a>
 
@@ -387,6 +387,8 @@ Requires: `credentials`
 ```ts config-catalog
 /** Browser authentication, request limits, and connection recovery configuration. */
 export interface ConnectionConfig {
+  /** Opt-in Feishu accounts with one fixed personal Workspace per user. */
+  feishu?: FeishuConfig | undefined
   /** Browser recovery timing, injected into each served page. */
   recovery?: ConnectionRecoveryConfig
   /**
@@ -402,6 +404,28 @@ export interface ConnectionConfig {
   cookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
+}
+
+/** Feishu login and fixed personal workspace deployment settings. */
+export interface FeishuConfig {
+  /** Canonical public HTTPS origin; loopback HTTP is accepted for development. */
+  publicOrigin: string
+  /** Feishu application identifier. */
+  appId: string
+  /** Environment variable containing the server-side application secret. */
+  appSecretEnv: string
+  /** Optional enterprise allowlist; omitted or empty permits every user authorized by this Feishu application. */
+  tenantKeys?: string[]
+  /** Absolute parent directory for internally named user directories. */
+  workspaceRoot: string
+  /** Absolute login lifetime in days. */
+  sessionMaxAgeDays: number
+  /** OAuth attempt lifetime in seconds. */
+  stateMaxAgeSeconds: number
+  /** Maximum simultaneous pending login attempts. */
+  maxPendingLogins: number
+  /** Deadline for each Feishu HTTP request in milliseconds. */
+  requestTimeoutMs: number
 }
 
 /** Timing for generation readiness and automatic reconnection. */
@@ -422,7 +446,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:72`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:76`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
@@ -2102,7 +2126,7 @@ export interface Config {
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 ```
 
-Source: [`packages/session-query/session-log-export/src/index.ts:46`](../packages/session-query/session-log-export/src/index.ts)
+Source: [`packages/session-query/session-log-export/src/index.ts:47`](../packages/session-query/session-log-export/src/index.ts)
 
 <a id="deepseek-aidsh-session-persistence-jsonl"></a>
 
@@ -3692,6 +3716,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-tool` ([`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-trajectory` ([`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-user-questions` ([`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-workbench` ([`packages/client/ui-workbench/src/index.ts`](../packages/client/ui-workbench/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-workflow-run` ([`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-workspace` ([`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts))
 - `@deepseek-ai/dsh-command-compact` — requires `commands` · `compaction` ([`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts))

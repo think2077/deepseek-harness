@@ -306,5 +306,7 @@ function remoteStreamUrl(): string {
   const base = location?.origin !== undefined && location.origin !== 'null' ? location.origin : INTERNAL_BASE
   const url = new URL(REMOTE_STREAM_MUX_PATH, base)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  const userId: unknown = Reflect.get(globalThis, '__DSH_WEB_USER__')
+  if (typeof userId === 'string') url.searchParams.set('webUser', userId)
   return url.href
 }

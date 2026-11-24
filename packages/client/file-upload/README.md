@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 This package lets browser features store a `Blob`, exact bytes, or a `ReadableStream<Uint8Array>` for one Session and receive an opaque receipt for a later prompt. Served pages send Blob and stream bodies without aggregating their bytes on the page thread; pages whose Host runs in another execution context supply a Fetch-shaped carrier before Cordis boots. Callers can observe consumed bytes and cancel an active operation. A stream body is consumed once and transfers ownership when it crosses a Worker boundary. Exact bytes use the generated Remote.
 
+Feishu personal-space mode checks durable Session ownership before resolving the upload Agent or consuming uploaded bytes; [Connection](../connection/README.md#feishu-personal-workspaces) owns authentication.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

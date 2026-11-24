@@ -7,6 +7,8 @@
 
 import { randomUUID } from 'node:crypto'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
+import type { WebUserId } from '@deepseek-ai/dsh-client-connection'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import type { WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -96,6 +98,7 @@ interface RegisteredRemoteEventSource {
 }
 
 interface RemoteEventClient {
+  readonly userId?: WebUserId | undefined
   readonly id: RemoteEventClientId
   readonly queue: RemoteEventQueue
   readonly deliveries: Map<RemoteEventId, PendingRemoteEvent>
@@ -217,7 +220,31 @@ export class TypertGatewayService extends Service implements TypertGateway {
               rejectRemoteStreamUpgrade(socket, rejection)
               return
             }
-            mux.handleUpgrade(req, socket, head)
+            const run = <T>(operation: () => T): T => webCtx.connection.runRequest === undefined
+              ? operation() : webCtx.connection.runRequest(req, operation)
+            const open = async (endpoint: string, payload: unknown, signal: AbortSignal): Promise<AsyncIterable<unknown>> => {
+              const source = await run(() => this.openWireStream(endpoint, payload, signal))
+              const iterator = source[Symbol.asyncIterator]()
+              return {
+                [Symbol.asyncIterator]: () => ({
+                  next: () => run(() => iterator.next()),
+                  return: async () => {
+                    // Teardown must run even after the browser login is revoked.
+                    return await iterator.return?.() ?? { done: true, value: undefined }
+                  },
+                }),
+              }
+            }
+            const accounts = webCtx.get('webAccounts')
+            const expected = new URL(req.url ?? '/', 'http://x').searchParams.get('webUser')
+            if (accounts !== undefined && expected !== null && run(() => accounts.userId()) !== expected) {
+              rejectRemoteStreamUpgrade(socket, 401)
+              return
+            }
+            const done = accounts === undefined
+              ? mux.handleUpgrade(req, socket, head, open)
+              : accounts.connection(req, signal => mux.handleUpgrade(req, socket, head, open, signal))
+            void done.catch((error: unknown) => { webCtx.logger.warn(`Remote socket closed: ${String(error)}`) })
           },
         }
         const unregister = webCtx.webServer.registerUpgrade(route)
@@ -358,7 +385,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       try {
         const result = parseRemoteEventResultPayload(payload)
         const client = this.remoteEventClients.get(result.clientId)
-        if (client === undefined) {
+        if (client === undefined || client.userId !== this.ctx.get('webAccounts')?.userId()) {
           throw new Error('typert gateway: Remote event result identifies no active event stream')
         }
         this.receiveRemoteEventResult(client, result)
@@ -414,6 +441,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
     while (this.remoteEventClients.has(clientId)) clientId = randomUUID() as RemoteEventClientId
     const client: RemoteEventClient = {
       id: clientId,
+      userId: this.ctx.get('webAccounts')?.userId(),
       queue: new RemoteEventQueue(),
       deliveries: new Map(),
     }
@@ -451,7 +479,16 @@ export class TypertGatewayService extends Service implements TypertGateway {
       event: frame.event,
       args: frame.args,
     }
-    for (const client of this.remoteEventClients.values()) client.queue.push(wire)
+    for (const client of this.remoteEventClients.values()) {
+      if (client.userId !== undefined) {
+        if (!frame.event.startsWith('api-session/') && !['agent-preset/selected', 'goal/activation-changed'].includes(frame.event)) continue
+        const first = frame.args[0]
+        const id = typeof first === 'string' ? first
+          : typeof first === 'object' && first !== null && 'sessionId' in first ? first.sessionId : undefined
+        if (typeof id !== 'string' || this.ctx.get('webAccounts')?.ownerOf(id as SessionId) !== client.userId) continue
+      }
+      client.queue.push(wire)
+    }
   }
 
   private startRemoteEvent(source: TypertRemoteEventInvocation): void {
@@ -514,6 +551,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   private deliverRemoteEvent(pending: PendingRemoteEvent, client: RemoteEventClient): void {
+    if (client.userId !== undefined && this.ctx.get('webAccounts')?.ownerOf(pending.source.context.agentId as SessionId) !== client.userId) return
     pending.deliveries.add(client)
     client.deliveries.set(pending.id, pending)
     client.queue.push(pending.frame)
@@ -596,6 +634,20 @@ export class TypertGatewayService extends Service implements TypertGateway {
 
   private async prepareInvocation(request: InvokeRemoteRequest): Promise<PreparedInvocation> {
     const endpoint = endpointOf(request.namespace, request.method)
+    const accounts = this.ctx.get('webAccounts')
+    if (accounts !== undefined) {
+      accounts.userId()
+      if (!['session', 'workspace', 'workspaceFiles', 'fileReferences', 'skills', 'commands', 'goals', 'permissionPresets', 'fileUploads', 'terminal', 'messageFeedback', 'sessionFeedback', 'sessionReferenceResolver', 'knowledgeBase'].includes(request.namespace)
+        && !(request.namespace === 'agentPresets' && ['list', 'read', 'select'].includes(request.method))) {
+        throw new RemoteError('gateway/bad-request', 'operation unavailable in personal Workspace mode', {})
+      }
+      const nested = request.args.request
+      const containers = [request.args, ...(isObject(nested) && !Array.isArray(nested) ? [nested as Record<string, unknown>] : [])]
+      for (const args of containers) for (const key of ['agentId', 'sessionId', 'workspaceFileScopeId']) {
+        const value = args[key]
+        if (typeof value === 'string' && !(request.namespace === 'session' && request.method === 'create')) accounts.assertSession(value as SessionId)
+      }
+    }
     const descriptor = this.resolveDescriptor(request.namespace, request.method, endpoint)
     assertExactArguments(request.args, descriptor, endpoint)
     const receiverContext = await this.resolveReceiverContext(descriptor, request.args, endpoint)

@@ -15,6 +15,7 @@ The package carries browser-to-Host Remote calls, exact Fetch responses, and con
 
 - [Use this package](#use-this-package)
 - [Browser authentication and request trust](#browser-authentication-and-request-trust)
+- [Feishu personal Workspaces](#feishu-personal-workspaces)
 - [Connection generation](#connection-generation)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
@@ -37,6 +38,43 @@ Every Host RPC method and WebSocket stream requires one browser session; there i
 The cookie signing secret is the owner-scoped `client-connection/browser-session` grant record in `ctx.credentials`. The local provider persists it in `$DSH_HOME/.credentials.yaml`; `BrowserAuth` loads or creates the record during Connection activation and retains the secret in memory, so request authentication is synchronous. Deleting or replacing the record takes effect on the next Connection activation. Cookies carry an absolute issue/expiry interval, defaulting to 30 days through `cookieMaxAgeDays`, and bind the normalized hostname plus port in both their deterministic name and signed payload. They are host-only, `Path=/`, `HttpOnly`, and `SameSite=Strict`; they deliberately omit `Secure` because the shipped server uses loopback HTTP.
 
 Before authentication, every request still passes `src/api-request-trust.ts`. Its `Host` must be loopback or match a `trustedHosts` entry: exact on `host:port`, any port on port-less entries, both sides WHATWG-normalized. An attached `Origin` must equal that Host and `sec-fetch-site: cross-site` is refused. Malformed configured authorities fail plugin load. These checks defend DNS rebinding and cross-site browser requests; they never establish identity. A failed Host/Origin check returns 403, while a trusted but unauthenticated request returns 401. `dsh web --host 0.0.0.0` remains unsupported. Decision records: [browser request trust](../../../.agents/notes/implemented/architecture/2026-07-28-api-browser-trust-boundary.md) and [browser token authentication](../../../.agents/notes/implemented/architecture/2026-08-24-browser-token-authentication.md).
+
+
+<a id="feishu-personal-workspaces"></a>
+## Feishu personal Workspaces
+
+Set `connection.config.feishu` in an explicit Web profile overlay to replace local launch-token authentication with Feishu login. This mode requires the profile's storage domain, Session persistence, Workspace registry, and Web server. A single Harness serves all users; API ownership and browser presentation are isolated, while tools and shell commands still share the Host operating-system identity. Existing Sessions without ownership records remain invisible and cannot be adopted through the API.
+
+Create a Feishu application, enable its web login capability, allow the intended members, and register `https://harness.example.com/auth/feishu/callback` as its redirect URL. Supply the application secret through `FEISHU_APP_SECRET` in the server environment. The server uses the [Feishu OAuth token API](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/authentication-management/access-token/get-user-access-token-v3) and discards the Feishu token after reading identity; it requests no offline access.
+
+Save this overlay as `/absolute/feishu.patch.yml`, replacing the example origin, application id, and directory:
+
+```yaml
+- id: connection
+  config:
+    trustedHosts: [harness.example.com]
+    feishu:
+      publicOrigin: https://harness.example.com
+      appId: cli_your_application
+      appSecretEnv: FEISHU_APP_SECRET
+      workspaceRoot: /var/lib/dsh/workspaces
+```
+
+Start with `pnpm dsh --profile web --patch /absolute/feishu.patch.yml`. Terminate HTTPS at a reverse proxy forwarding HTTP and WebSocket requests to the loopback server, preserving the original `Host` and `Origin` headers. `publicOrigin` must be a canonical HTTPS origin and its exact authority must occur in `trustedHosts`; loopback HTTP is accepted for development. No forwarding headers establish identity. The printed URL carries no launch token in this mode.
+
+`GET /auth/login` offers Feishu login. The callback checks a short-lived, one-use state bound to an HttpOnly browser cookie, checks the enterprise allowlist when configured, and creates or reuses a stable internal account and its fixed directory. The internal id derives from the application, tenant, and Feishu open id; display-name changes update the Workspace title without moving files. The sidebar shows only that user's Workspace and Sessions, removes Workspace creation and management, and links to `/auth/account` for sign-out. Models, plugin inventory, knowledge-base management, and preset authoring remain operator-owned; theme and language preferences stay browser-local.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `tenantKeys` | `[]` | Optional enterprise allowlist; omitted or empty allows users authorized by the Feishu application |
+| `sessionMaxAgeDays` | 7 | Absolute browser login lifetime, 1–24 days |
+| `stateMaxAgeSeconds` | 300 | OAuth attempt lifetime |
+| `maxPendingLogins` | 1000 | Concurrent pending attempts before HTTP 429 |
+| `requestTimeoutMs` | 15000 | Deadline for each Feishu HTTP request |
+
+The default JSON backend stores the `web_accounts` domain in `$DSH_HOME/storages/web_accounts.json`: `users` stores Feishu identity and display name, `web_sessions` stores login-token digests and expiry, and `session_owners` maps Session ids to internal user ids. The Workspace domain retains directory records and membership; Session JSONL and attachment storage keep their existing locations. Raw browser login tokens, application secrets, and Feishu tokens are absent from the account domain. Expired browser records are removed at startup and successful login; OAuth attempts exist only in memory and restarting abandons them.
+
+Ownership is reserved durably before a browser Session is created. Failed creation can leave an invisible reservation for a same-user retry; another user cannot adopt it. Forks reserve the new id for the source's authenticated user, and background children inherit their durable parent's owner. HTTP reads, commands, files, exports, search results, control baselines, and selected Remote events are filtered or authorized before delivery. Logout deletes the browser record and terminates its WebSocket connections; it does not cancel running Agents. Browser store keys include the internal user id. This is application-level separation, not filesystem or process confinement.
 
 <a id="connection-generation"></a>
 ## Connection generation
@@ -64,8 +102,8 @@ None; this package neither assembles nor sends a provider request.
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Buffered `/api` routes retain each request body in memory** — `maxRequestBodyBytes` (default 300 MiB, sized for the default 200 MiB aggregate image limit after base64 expansion plus envelope headroom) bounds ordinary image and RPC envelopes. Opt-in streaming routes receive backpressured chunks and bypass the aggregate cap; route implementations own persistence, cancellation, and any storage quota.
-- **The browser cookie is not marked `Secure`** — loopback HTTP is the shipped transport, so exposing the same authority over plaintext networking can expose the bearer cookie in transit.
-- **There is no logout operation** — clearing the browser cookie ends one browser session; deleting the owner credential record and restarting `dsh` revokes every session.
+- **The local-mode browser cookie is not marked `Secure`** — loopback HTTP is the shipped transport, so exposing the same authority over plaintext networking can expose the bearer cookie in transit.
+- **Local token mode has no logout operation** — clearing the browser cookie ends one browser session; deleting the owner credential record and restarting `dsh` revokes every session.
 
 
 <a id="dev-note"></a>

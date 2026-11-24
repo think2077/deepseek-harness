@@ -135,6 +135,12 @@ export function createSnapshotStore<T>(
   }
 }
 
+/** Prefix browser records with the server-issued account id when personal Workspaces are enabled. */
+function accountStorageKey(name: string): string {
+  const userId: unknown = Reflect.get(globalThis, '__DSH_WEB_USER__')
+  return typeof userId === 'string' ? `web-user:${userId}:${name}` : name
+}
+
 /**
  * Whole-value JSON persistence to localStorage. Hand-rolled instead of the
  * zustand persist middleware: its write path spreads state into an object
@@ -148,6 +154,7 @@ function attachPersistence<T>(api: StoreApi<T>, name: string): void {
   // persistence silently disables — same contract as a storage failure, minus
   // the per-store console noise a ReferenceError would produce.
   if (typeof localStorage === 'undefined') return
+  name = accountStorageKey(name)
   try {
     const raw = localStorage.getItem(name)
     if (raw !== null) {
@@ -238,7 +245,7 @@ export function defineStore<T, A extends ActionsDecl<T>>(
         clearPersisted: () => {
           if (persistKey === undefined || typeof localStorage === 'undefined') return
           try {
-            localStorage.removeItem(persistKey)
+            localStorage.removeItem(accountStorageKey(persistKey))
           } catch {
             // Storage failures (private mode, quota teardown races) only skip
             // cleanup — the same non-fatal contract as attachPersistence.

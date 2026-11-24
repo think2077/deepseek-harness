@@ -11,6 +11,8 @@ kind: "package-reference"
 
 本包让浏览器功能为一个 Session 存储 `Blob`、精确字节或 `ReadableStream<Uint8Array>`，并取得供后续 prompt 使用的不透明凭证。普通服务页面发送 Blob 和 stream 请求体时，不会在页面线程聚合全部字节；Host 位于其他执行上下文中的页面会在 Cordis 启动前提供 Fetch 形式的载体。调用方可以观察已消费字节并取消活动操作。stream 请求体只能消费一次，跨 Worker 边界时会转移所有权。精确字节使用生成的 Remote。
 
+飞书个人空间模式在解析上传 Agent 或消费上传字节前校验持久 Session 归属；[Connection](../connection/README.zh.md#feishu-personal-workspaces) 负责认证。
+
 ## 目录
 
 - [使用本包](#use-this-package)

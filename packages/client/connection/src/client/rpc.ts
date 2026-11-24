@@ -44,7 +44,10 @@ export function createWebConnectionRpc(doFetch?: RpcFetch, openStream?: RpcStrea
         new URL(`${channel}/${endpoint}`, resolveBase()),
         {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json',
+            ...(typeof Reflect.get(globalThis, '__DSH_WEB_USER__') === 'string'
+              ? { 'x-dsh-web-user': String(Reflect.get(globalThis, '__DSH_WEB_USER__')) } : {}),
+          },
           body: JSON.stringify(message),
           ...signal === undefined ? {} : { signal },
         },

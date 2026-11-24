@@ -8,6 +8,8 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
+import { WebAccounts } from './accounts.ts'
+import type { FeishuConfig } from './account-types.ts'
 import { BrowserAuth } from './browser-auth.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
@@ -41,6 +43,8 @@ export {
   rpcResultSchema,
   serverResponseSchema,
 } from './rpc-schema.ts'
+export type { FeishuConfig, WebUserId } from './account-types.ts'
+export type { WebAccounts } from './accounts.ts'
 export { HostConnectionService } from './rpc-host.ts'
 
 export { API_PATH } from './api-path.ts'
@@ -70,6 +74,8 @@ export const inject = ['credentials']
 
 /** Browser authentication, request limits, and connection recovery configuration. */
 export interface ConnectionConfig {
+  /** Opt-in Feishu accounts with one fixed personal Workspace per user. */
+  feishu?: FeishuConfig | undefined
   /** Browser recovery timing, injected into each served page. */
   recovery?: ConnectionRecoveryConfig
   /**
@@ -88,11 +94,53 @@ export interface ConnectionConfig {
 }
 
 export const Config: z<ConnectionConfig> = z.object({
+  feishu: z.union([z.object({
+    publicOrigin: z.string().required(),
+    appId: z.string().required(),
+    appSecretEnv: z.string().default('FEISHU_APP_SECRET'),
+    tenantKeys: z.array(String).default([]),
+    workspaceRoot: z.string().required(),
+    sessionMaxAgeDays: z.natural().min(1).max(24).default(7),
+    stateMaxAgeSeconds: z.natural().min(1).default(300),
+    maxPendingLogins: z.natural().min(1).default(1000),
+    requestTimeoutMs: z.natural().min(1).max(2147483647).default(15000),
+  }), z.const(undefined)]),
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
+
+/**
+ * Reject a Feishu deployment that cannot possibly sign anyone in, before
+ * WebAccounts is constructed and leaves its dependants pending without a
+ * readable reason.
+ * @param ctx - Host context used for deployment warnings.
+ * @param feishu - resolved Feishu deployment settings.
+ * @param trustedHosts - authorities this deployment answers to.
+ */
+function assertFeishuDeployment(ctx: Context, feishu: FeishuConfig, trustedHosts: readonly string[]): void {
+  let origin: URL
+  try {
+    origin = new URL(feishu.publicOrigin)
+  } catch {
+    throw new Error(`feishu.publicOrigin ${JSON.stringify(feishu.publicOrigin)} is not an absolute URL such as https://harness.example.com`)
+  }
+  if (!trustedHosts.includes(origin.host)) {
+    throw new Error(`feishu.publicOrigin host "${origin.host}" is not in trustedHosts; add --trusted-host ${origin.host} or list it in the same patch`)
+  }
+  // `appSecretEnv` names a variable. Pasting the secret here is the common
+  // mistake, and echoing the value would print the secret into the log.
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(feishu.appSecretEnv)) {
+    throw new Error('feishu.appSecretEnv must name an environment variable such as FEISHU_APP_SECRET; it must not contain the App Secret itself')
+  }
+  if (process.env[feishu.appSecretEnv] === undefined || process.env[feishu.appSecretEnv] === '') {
+    throw new Error(`feishu.appSecretEnv names ${feishu.appSecretEnv}, but that environment variable is empty or unset; export ${feishu.appSecretEnv}=<App Secret> before starting`)
+  }
+  if ((feishu.tenantKeys ?? []).length === 0) {
+    ctx.logger.warn('feishu.tenantKeys is empty: any tenant able to authorize this app may sign in; pin tenant_key for production')
+  }
+}
 
 /**
  * Provides carrier-neutral RPC and Fetch registries. When `webServer` is
@@ -111,33 +159,48 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
-  const connection = new HostConnectionService(
-    ctx,
-    trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
-  )
-  ctx.inject(['webServer'], (webCtx) => {
-    assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
-    webCtx.on('webserver/index-inject', (table) => {
-      table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
-    })
-    const fetchHandler = connection.createSharedFetchHandler(API_PATH)
-    const route: WebRoute = {
-      kind: 'prefix',
-      path: API_PATH,
-      handler: async (req, res) => {
-        const rejection = connection.requestRejection(req)
-        if (rejection !== undefined) {
-          res.writeHead(rejection)
-          res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
-          return
-        }
-        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
-      },
+  if (config?.feishu !== undefined) {
+    const feishu = config.feishu
+    assertFeishuDeployment(ctx, feishu, trustedHosts)
+    await ctx.plugin(WebAccounts, feishu)
+    const accounts = ctx.get('webAccounts')
+    if (accounts === undefined) {
+      throw new Error('feishu sign-in did not activate: WebAccounts needs storageDomain, workspaceRegistry, webServer, and sessions in the composition; read the error this entry reports first')
     }
-    webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
-  })
-  ctx.inject(['attachments'], (attachmentCtx) => {
-    assertImageBodyCapacity(attachmentCtx, maxRequestBodyBytes)
-  })
+    install(ctx, accounts)
+  } else {
+    install(ctx, await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays))
+  }
+
+  function install(scope: Context, authentication: BrowserAuth | WebAccounts): void {
+    const connection = new HostConnectionService(scope, trustedHosts, authentication)
+    scope.inject(['webServer'], (webCtx) => {
+      assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
+      webCtx.on('webserver/index-inject', (table) => {
+        table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+        if (authentication instanceof WebAccounts) {
+          table.push({ kind: 'global', name: '__DSH_PERSONAL_WORKSPACE__', value: true })
+          table.push({ kind: 'global', name: '__DSH_WEB_USER__', value: authentication.userId() })
+        }
+      })
+      const fetchHandler = connection.createSharedFetchHandler(API_PATH)
+      const route: WebRoute = {
+        kind: 'prefix',
+        path: API_PATH,
+        handler: async (req, res) => {
+          const rejection = connection.requestRejection(req)
+          if (rejection !== undefined) {
+            res.writeHead(rejection)
+            res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
+            return
+          }
+          await connection.runRequest(req, () => bridge(req, res, fetchHandler, maxRequestBodyBytes))
+        },
+      }
+      webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
+    })
+    ctx.inject(['attachments'], (attachmentCtx) => {
+      assertImageBodyCapacity(attachmentCtx, maxRequestBodyBytes)
+    })
+  }
 }

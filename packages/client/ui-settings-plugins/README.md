@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 Use the **Plugins** settings section to configure the plugins exposed by the current deployment and to open feature-specific plugin pages. The **Plugin configuration** tab presents one expandable card for each supported plugin, shows which values the user overrode, and lets the user reset them to deployment defaults. Cards keep edits local until save. If the configuration changed after the card loaded, the save is rejected instead of overwriting the newer values.
 
+Feishu personal-space deployments keep instance configuration operator-owned; browser-local preferences remain available. See [Connection](../connection/README.md#feishu-personal-workspaces) for account policy.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

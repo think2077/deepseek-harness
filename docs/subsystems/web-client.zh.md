@@ -31,6 +31,8 @@ Connection 拥有 request correlation、`/api` carrier、trust check、精确 Fe
 
 内部 `$events` logical stream 是 Connection generation source。它的 opening `ready` frame 携带用于路径显示的 Host home，并在 Host listener 已挂载、任何 controller 开始 baseline read 之前建立 generation。`ctx.remote.$on()` 把 allowlist 内的普通 event 交付给 root Client Context，并把 scoped waterfall event 交付给已解析的 Session Context；waterfall listener 可以返回结果、调用 `next()` 或拒绝。
 
+可选飞书个人 Workspace 在一个 Host 进程中使用 Connection 管理的账号身份、固定目录和持久 Session 归属。浏览器存储按账号添加前缀，执行环境仍然共享；[Connection](../../packages/client/connection/README.zh.md#feishu-personal-workspaces) 定义部署和持久化。
+
 ## Client models
 
 每个 API controller 包都拥有配对的 Host face 与 Client face。Host 侧拥有权威 mutation 与 stream 生产；Client 侧基于相同的生成 wire type 维护 identity 稳定、与 React 无关的 model，并公开 observable snapshot 与 command。UI 包消费这些 Client service，不在 component store 中复制 transport state。
