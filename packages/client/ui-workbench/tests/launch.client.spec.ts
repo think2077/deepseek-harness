@@ -7,6 +7,8 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { UiWorkspaceService } from '../../ui-workspace/src/client/navigation.ts'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import * as plugin from '../src/client/index.ts'
 
 let context: Context | undefined
@@ -30,7 +32,10 @@ async function boot() {
     scope.provide('sessions', { create } as never)
     scope.provide('remote', { agentPresets: { select } } as never)
     scope.provide('remote.agentPresets', { select } as never)
-    scope.provide('uiWorkspace', { openSession: open } as never)
+    const uiWorkspace = new UiWorkspaceService(scope, {} as never,
+      { list: createSnapshotStore({ phase: 'loading', items: [], archivedSessionIds: [] }) } as never,
+      { create, list: createSnapshotStore({ phase: 'loading', byId: {} }) } as never)
+    vi.spyOn(uiWorkspace, 'openSession').mockImplementation(open)
     scope.provide('layout', { beginNavigation: () => { navigation.abort(); navigation = new AbortController(); return navigation.signal } } as never)
     scope.slots.register({ name: 'root', children: {
       main: { kind: 'keyed', scope: 'root' }, 'sidebar.panellist': { kind: 'list', scope: 'root' },

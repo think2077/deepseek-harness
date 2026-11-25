@@ -339,6 +339,9 @@
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
 
+    - id: ui-digital-employees
+      name: '@deepseek-ai/dsh-client-ui-digital-employees'
+
     - id: ui-workbench
       name: '@deepseek-ai/dsh-client-ui-workbench'
     - id: ui-knowledge-base

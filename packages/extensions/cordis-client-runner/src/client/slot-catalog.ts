@@ -1427,6 +1427,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'root\' (client-ui-layout), so it exists while that entry is mounted',
     occupants: [
       'client-ui-conversation ConversationPanel key \'conversation\'',
+      'client-ui-digital-employees DigitalEmployees',
       'client-ui-knowledge-base KnowledgeReviewSection',
       'client-ui-knowledge-base KnowledgeBaseSection',
       'client-ui-workbench Workbench',
@@ -2268,6 +2269,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'sidebar\' (client-ui-sidebar), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-digital-employees ({ size }) => createElement(IconAgentPresetOutline16, { s…',
       'client-ui-knowledge-base KnowledgeReviewIcon',
       'client-ui-knowledge-base KnowledgeBaseIcon',
       'client-ui-workbench () => createElement(\'svg\', { width: 16, height: 16, viewB…',

@@ -15,6 +15,16 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
+   * Create a launcher for fresh conversations with an explicit preset. Calls
+   * while its previous launch is pending are ignored. A later navigation,
+   * caller cancellation, or service disposal prevents opening the new session.
+   * @param signal - Calling plugin lifetime; abort it when that plugin unloads.
+   * @returns A launcher resolving after preset selection and opening; creation
+   * or selection failures reject and may leave an unopened blank session.
+   */
+  createPresetSessionLauncher(signal: AbortSignal): (workspaceId: WorkspaceId, presetId: string) => Promise<void>
+
+  /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param sessionId - listed or retained Session to display.
    */
@@ -110,6 +120,25 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => this.watchNavigation(), 'ui-workspace: Workspace navigation policy')
+  }
+
+  createPresetSessionLauncher(callerSignal: AbortSignal): (workspaceId: WorkspaceId, presetId: string) => Promise<void> {
+    let starting = false
+    return async (workspaceId, presetId) => {
+      if (starting || callerSignal.aborted || this.lifetime.signal.aborted) return
+      starting = true
+      const signal = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal, callerSignal])
+      const isCurrent = (): boolean => !signal.aborted
+      try {
+        const sessionId = await this.sessions.create({ workspaceId })
+        if (!isCurrent()) return
+        const result = await this.ctx.remote.agentPresets.select(sessionId, presetId)
+        if (!result.ok) throw new Error(result.error.message)
+        if (isCurrent()) this.openSession(sessionId)
+      } finally {
+        starting = false
+      }
+    }
   }
 
   async connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId> {

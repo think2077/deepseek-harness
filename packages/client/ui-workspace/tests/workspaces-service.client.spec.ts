@@ -609,3 +609,16 @@ describe('UiWorkspaceService', () => {
     })
   })
 })
+
+it('ignores preset launches after caller cancellation or workspace navigation disposal', async () => {
+  const b = bench()
+  const caller = new AbortController()
+  const launch = b.uiWorkspace.createPresetSessionLauncher(caller.signal)
+  caller.abort()
+  await launch(wid('alpha'), 'minimal')
+  expect(b.sessions.create).not.toHaveBeenCalled()
+  const later = b.uiWorkspace.createPresetSessionLauncher(new AbortController().signal)
+  await b.ctx.fiber.dispose()
+  await later(wid('alpha'), 'minimal')
+  expect(b.sessions.create).not.toHaveBeenCalled()
+})

@@ -48,6 +48,7 @@
     "tests/document-preview.e2e.ts",
     "tests/plugin-config.e2e.ts",
     "tests/settings-chrome.e2e.ts",
+    "tests/digital-employees.e2e.ts",
     "tests/models-settings.e2e.ts",
     "tests/deepseek-messages-settings.e2e.ts",
     "tests/deepseek-messages-chat.e2e.ts",

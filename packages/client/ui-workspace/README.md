@@ -27,6 +27,8 @@ Feishu personal-space mode shows the single account Workspace, hides add, rename
 <a id="use-this-package"></a>
 ## Use this package
 
+`ctx.uiWorkspace.createPresetSessionLauncher(signal)` lets preset browsing surfaces create a fresh workspace session, select its preset, and open it only while the calling plugin and navigation remain current. Concurrent starts through one launcher are ignored; creation or selection failures reject.
+
 Use the sidebar to browse Workspaces and their Sessions, reorder them, and start new ones; use the picker in the Session Intent hero to choose a Workspace for a new session. An open Workspace shows five non-blank Sessions by default and keeps the selected blank **New Session** as one provisional extra row until its first prompt. **Show more** reveals the hidden remainder; closing and reopening the Workspace restores this folded projection.
 
 ### Reordering and view options

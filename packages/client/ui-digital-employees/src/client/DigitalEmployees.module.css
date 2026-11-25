@@ -1,0 +1,17 @@
+.page { height: 100%; overflow: auto; box-sizing: border-box; padding: 32px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base); }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.page h1 { margin: 0; font-size: 26px; }
+.page h2 { margin: 12px 0; font-size: 18px; }
+.page p { color: var(--dsw-alias-label-secondary); line-height: 1.7; }
+.search { width: min(100%, 460px); }
+.search > span { width: 100%; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 24px; }
+.card, .detail { padding: 24px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); }
+.card { display: flex; flex-direction: column; }
+.card p { flex: 1; }
+.badges, .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.detail { margin-top: 24px; }
+.plugins { list-style: none; padding: 0; }
+.plugins li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
+.plugins code { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .page { padding: 16px; } .header { align-items: flex-start; } }

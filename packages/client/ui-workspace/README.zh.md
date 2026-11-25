@@ -27,6 +27,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+`ctx.uiWorkspace.createPresetSessionLauncher(signal)` 让预设浏览入口创建全新的工作空间会话、选择预设，并且只在调用插件与导航仍有效时打开会话。同一启动器会忽略并发启动；创建或选择失败会拒绝。
+
 用侧边栏浏览 Workspace 及其 Session、重排它们并新建会话；在 Session Intent 主视觉区用选择器为新会话选择 Workspace。打开的 Workspace 默认显示五条非空白 Session，并在首条提示词落地前把当前选中的空白**新会话**作为一条临时额外行。**展开其余**会显示隐藏条目；关闭再打开 Workspace 会恢复该折叠投影。
 
 ### 重排序与视图选项

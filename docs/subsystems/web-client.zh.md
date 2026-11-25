@@ -51,6 +51,8 @@ Connection 拥有 request correlation、`/api` carrier、trust check、精确 Fe
 
 [`api/workspace-controller`](../../packages/api/workspace-controller/README.zh.md)把 Workspace mutation policy 与权威 follow feed 留在 Host。`ClientWorkspaceModel` 拥有浏览器侧 row、order、archived Session id、command echo，以及 stream/unary 竞态合并。每代 stream 先给出完整 baseline，再给出 `upsert`、`remove`、`order` 和 `archived` increment；重连时以新 baseline 替换 model。`WorkspaceController` 把该 model 作为 `ctx.workspaces` 公开，而 `ui-workspace` 向 UI 提供 `useWorkspaces` 与 navigation callback。archived Session id 过滤每一个分组视图，并驱动「已归档会话」设置页；该页把该集合与已加载的 Session summary 合并，为每行提供一个取消归档操作。恢复会调用 `workspace.unarchiveSession` Remote，返回的完整集合则经 `archived` increment 到达每个 Client。
 
+`ctx.uiWorkspace.createPresetSessionLauncher(signal)` 为预设浏览插件提供全新会话启动器：在打开对话前选择指定预设，并遵循调用方卸载与后续导航。其生命周期与失败行为由 [ui-workspace](../../packages/client/ui-workspace/README.zh.md) 定义。
+
 这种配对不会产生第二份业务真相。Host controller 决定持久状态与 mutation outcome；Client model 维护最新可用的本地 projection，在有利于渲染时保持 object identity，并明确 delayed response 与 replacement baseline 的合并规则。
 
 ## Conversation 与 presentation
