@@ -46,15 +46,10 @@ export interface Project {
   readonly stage: ProjectStage
   readonly status: ProjectStatus
   readonly createdBy: Branded<'WebUserId'>
+  /** Readable name resolved from the authoring account; absent when it is gone or host-created. */
+  readonly createdByName?: string
   readonly createdAt: string
   readonly updatedAt: string
-}
-
-function projectOf(workspace: Workspace): Project {
-  const metadata = workspace.project
-  if (metadata === undefined) throw new Error('project metadata is absent')
-  return { id: workspace.id, title: workspace.title, ...metadata,
-    createdAt: workspace.createdAt, updatedAt: workspace.updatedAt }
 }
 
 /** Manages shared projects; all writes require the authenticated administrator. */
@@ -108,7 +103,8 @@ export class ProjectService extends Service {
    * @returns detached project records.
    */
   list(): readonly Project[] {
-    return this.ctx.workspaceRegistry.list().filter(workspace => workspace.project !== undefined).map(projectOf)
+    return this.ctx.workspaceRegistry.list().filter(workspace => workspace.project !== undefined)
+      .map(workspace => this.projectOf(workspace))
   }
 
   /**
@@ -118,7 +114,7 @@ export class ProjectService extends Service {
    */
   get(id: WorkspaceId): Project | undefined {
     const workspace = this.ctx.workspaceRegistry.get(id)
-    return workspace?.project === undefined ? undefined : projectOf(workspace)
+    return workspace?.project === undefined ? undefined : this.projectOf(workspace)
   }
 
   /**
@@ -150,7 +146,7 @@ export class ProjectService extends Service {
         // The durable registry is authoritative even if marker cleanup fails.
         try { await unlink(intent) } catch (error) { this.ctx.logger.warn(`project '${id}' marker cleanup: ${String(error)}`) }
         this.changed()
-        return projectOf(workspace)
+        return this.projectOf(workspace)
       } catch (error) {
         if (this.ctx.workspaceRegistry.get(id) === undefined) {
           await this.removeEmpty(directory)
@@ -179,7 +175,7 @@ export class ProjectService extends Service {
         ...(patch.stage === undefined ? {} : { stage: patch.stage }),
       }, title)
       this.changed()
-      return projectOf(workspace)
+      return this.projectOf(workspace)
     })
   }
 
@@ -223,6 +219,26 @@ export class ProjectService extends Service {
       workspace.path === cwd && workspace.project?.status === 'archived')
   }
 
+  /**
+   * Project public view; author names resolve from the account store so
+   * stored metadata never duplicates a mutable display name.
+   * @param workspace - Workspace carrying project metadata.
+   * @returns detached project projection.
+   */
+  private projectOf(workspace: Workspace): Project {
+    const metadata = workspace.project
+    if (metadata === undefined) throw new Error('project metadata is absent')
+    const createdByName = this.ctx.get('webAccounts')?.displayNameOf(metadata.createdBy)
+    return {
+      id: workspace.id,
+      title: workspace.title,
+      ...metadata,
+      ...(createdByName === undefined ? {} : { createdByName }),
+      createdAt: workspace.createdAt,
+      updatedAt: workspace.updatedAt,
+    }
+  }
+
   private setStatus(id: WorkspaceId, status: ProjectStatus): Promise<Project> {
     return this.enqueue(async () => {
       this.assertManager()
@@ -233,7 +249,7 @@ export class ProjectService extends Service {
       }
       await workspace.updateProject({ status })
       this.changed()
-      return projectOf(workspace)
+      return this.projectOf(workspace)
     })
   }
 

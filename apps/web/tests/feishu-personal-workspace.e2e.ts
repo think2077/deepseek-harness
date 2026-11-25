@@ -124,6 +124,7 @@ describe('web e2e: Feishu personal Workspace', () => {
     const bobCard = bob.locator('article').filter({ hasText: 'Shared education project' })
     await bobCard.waitFor()
     expect(await bobCard.getByText('Contract negotiation and signing', { exact: true }).count()).toBe(1)
+    await expect.poll(() => bobCard.getByText('张三', { exact: true }).count()).toBe(1)
     await expect.poll(() => bob.getByRole('treeitem').filter({ hasText: 'Shared education project' }).count()).toBe(1)
     const project = app.ctx.projects.list().find(item => item.title === 'Shared education project')!
     const workspace = app.ctx.workspaceRegistry.get(project.id)!

@@ -4,9 +4,17 @@
 .page h1 { margin: 0; font-size: 26px; }
 .page h2 { font-size: 18px; }
 .page p { color: var(--dsw-alias-label-secondary); line-height: 1.6; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; margin-top: 24px; }
-.card { border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; align-items: flex-start; }
-.description { white-space: pre-wrap; flex: 1; overflow-wrap: anywhere; }
+.list { margin-top: 24px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 12px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 16px; padding: 18px 24px; border-top: 0.5px solid var(--dsw-alias-border-l1); }
+.row:first-child { border-top: none; }
+.rowMain { flex: 1 1 240px; min-width: 0; }
+.rowMain h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { display: flex; align-items: baseline; gap: 2px; margin: 0; font-size: 13px; min-width: 0; }
+.description { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.creator { flex: none; }
+.rowTime { display: flex; flex: none; flex-direction: column; gap: 2px; font-size: 13px; color: var(--dsw-alias-label-secondary); text-align: right; white-space: nowrap; }
+.rowTime time { font-variant-numeric: tabular-nums; }
+.rowActions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form label { display: flex; flex-direction: column; gap: 8px; }
 .form textarea { min-height: 120px; resize: vertical; }

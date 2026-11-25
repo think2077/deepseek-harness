@@ -166,6 +166,17 @@ export class WebAccounts extends Service {
   }
 
   /**
+   * Display name of any known account.
+   * Shared records (projects) store the authoring account id, so projections
+   * resolve the readable name here instead of duplicating it into metadata.
+   * @param userId - stored account identifier of the authoring employee.
+   * @returns the employee name, or undefined when the account is gone.
+   */
+  displayNameOf(userId: WebUserId): string | undefined {
+    return this.domain.table('users').get(userId)?.displayName
+  }
+
+  /**
    * Whether the authenticated account administers this deployment.
    * The flag is deployment state (it gates the shared model and plugin
    * configuration), so it is granted once — to the first account — and

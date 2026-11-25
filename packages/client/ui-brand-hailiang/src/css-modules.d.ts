@@ -8,3 +8,9 @@ declare module 'hailiang:mark' {
   const source: string
   export default source
 }
+
+/** Full horizontal lockup used by the New Session hero. */
+declare module 'hailiang:hero' {
+  const source: string
+  export default source
+}

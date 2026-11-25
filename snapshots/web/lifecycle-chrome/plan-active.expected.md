@@ -20,7 +20,7 @@
 - button "Settings":
   - img
   - text: Settings
-- text: Into the Unknown Preview
+- text: Start from one district and complete it together with digital employees
 - button "Choose workspace":
   - img
   - text: workspace

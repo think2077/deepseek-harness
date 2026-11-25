@@ -18,7 +18,18 @@ export interface ProjectsInjected {
   refresh: () => Promise<void>
 }
 const STAGES: readonly ProjectStage[] = ['engagement', 'discovery', 'proposal', 'approval', 'contracting', 'preparation', 'pilot', 'acceptance', 'operation']
-type Props = PropsRuntime<'main'> & PropsLocale<'projects'> & InjectFace<ProjectsInjected>
+
+/** Compact row timestamp; unparsable stored values fall back verbatim. */
+function updatedLabel(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(undefined, {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(date)
+}
+/** Component props including bound hooks and Host actions. */
+export type ProjectsProps = PropsRuntime<'main'> & PropsLocale<'projects'> & InjectFace<ProjectsInjected>
+type Props = ProjectsProps
 type Draft = { id?: WorkspaceId; name: string; description: string; stage: ProjectStage }
 
 /**
@@ -56,13 +67,21 @@ export function Projects({ t, useProjects, save, archive, restore, enter, refres
       <Button variant="outline" aria-pressed={archived} onClick={() => { setArchived(true) }}>{t('archived')}</Button>
     </div>
     {(error ?? state.error) !== undefined && <p role="alert">{error ?? state.error}</p>}
-    {state.catalog === undefined ? <p role="status">{t('loading')}</p> : rows.length === 0 ? <p>{t('empty')}</p> : <div className={css.grid}>{rows.map(project => <article key={project.projectId} className={css.card}>
-      <Tag>{t(project.stage)}</Tag><h2>{project.title}</h2><p className={css.description}>{project.description}</p>
-      <p>{t('creator')}: {project.createdBy}</p><p>{t('updated')}: <time dateTime={project.updatedAt}>{project.updatedAt}</time></p>
-      <div className={css.actions}>
-        {project.status === 'active' && <Button variant="primary" disabled={busy} onClick={() => { void run(() => enter(project.projectId)) }}>{t('enter')}</Button>}
-        {state.catalog?.canManage && <><Button variant="outline" disabled={busy} onClick={() => { setError(undefined); setDraft({ id: project.projectId, name: project.title, description: project.description, stage: project.stage }) }}>{t('edit')}</Button>
-          <Button variant="ghost" disabled={busy} onClick={() => {
+    {state.catalog === undefined ? <p role="status">{t('loading')}</p> : rows.length === 0 ? <p>{t('empty')}</p> : <div className={css.list} role="list">{rows.map(project => <article key={project.projectId} className={css.row} role="listitem">
+      <div className={css.rowMain}>
+        <h2>{project.title}</h2>
+        <p className={css.meta}>
+          <span className={css.description}>{project.description.trim() === '' ? t('noDescription') : project.description}</span>
+          <span aria-hidden> · </span>
+          <span className={css.creator} title={t('creator')}>{project.createdByName ?? t('unknownCreator')}</span>
+        </p>
+      </div>
+      <Tag>{t(project.stage)}</Tag>
+      <div className={css.rowTime}><span>{t('updated')}</span><time dateTime={project.updatedAt}>{updatedLabel(project.updatedAt)}</time></div>
+      <div className={css.rowActions}>
+        {project.status === 'active' && <Button size="sm" variant="primary" disabled={busy} onClick={() => { void run(() => enter(project.projectId)) }}>{t('enter')}</Button>}
+        {state.catalog?.canManage && <><Button size="sm" variant="outline" disabled={busy} onClick={() => { setError(undefined); setDraft({ id: project.projectId, name: project.title, description: project.description, stage: project.stage }) }}>{t('edit')}</Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => {
             if (project.status === 'archived') void run(() => restore(project.projectId))
             else { setError(undefined); setConfirm(project) }
           }}>{t(project.status === 'archived' ? 'restore' : 'archive')}</Button></>}

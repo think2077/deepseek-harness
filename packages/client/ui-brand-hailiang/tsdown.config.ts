@@ -4,6 +4,7 @@ import { clientBundle } from '../tsdown.client.ts'
 
 const brandAssets = new Map([
   ['hailiang:mark', 'hailiang-mark.png'],
+  ['hailiang:hero', 'hailiang-hero.png'],
 ])
 
 /** Inline the supplied raster artwork so the dynamic browser bundle has no asset URL to serve. */

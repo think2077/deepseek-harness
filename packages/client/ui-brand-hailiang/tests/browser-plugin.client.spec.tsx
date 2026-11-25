@@ -39,9 +39,9 @@ describe('Hailiang browser-brand plugin', () => {
   })
 
   it('renders the supplied Hailiang artwork and product name', () => {
-    const t: PropsLocale<'brand.hailiang'>['t'] = key => key === 'productName' ? '数字员工协同平台' : key
+    const t: PropsLocale<'brand.hailiang'>['t'] = key => key === 'productName' ? '教育共享数字员工协同平台' : key
     const name = render(<HailiangBrandName t={t} />)
-    expect(name.getByText('数字员工协同平台')).toBeTruthy()
+    expect(name.getByText('教育共享数字员工协同平台')).toBeTruthy()
     name.unmount()
     const mark = render(<HailiangBrandMark size={24} />)
     expect(mark.container.querySelector('img')?.getAttribute('width')).toBe('24')

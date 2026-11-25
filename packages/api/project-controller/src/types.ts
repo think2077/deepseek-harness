@@ -26,6 +26,8 @@ export interface ProjectView {
   readonly stage: ProjectStage
   readonly status: ProjectStatus
   readonly createdBy: Branded<'WebUserId'>
+  /** Readable creator name; absent when the account is gone or the project was host-created. */
+  readonly createdByName?: string
   readonly createdAt: string
   readonly updatedAt: string
 }

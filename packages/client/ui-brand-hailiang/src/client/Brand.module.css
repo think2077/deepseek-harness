@@ -3,6 +3,13 @@
   object-fit: contain;
 }
 
+/* The hero uses the horizontal lockup, so its height follows the width. */
+.heroLockup {
+  width: 288px;
+  max-width: 100%;
+  height: auto;
+}
+
 .productName {
   overflow: hidden;
   color: var(--dsw-alias-label-primary);

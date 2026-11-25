@@ -4,7 +4,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import favicon from 'hailiang:mark'
 import { HailiangBrandMark, HailiangBrandName, HailiangHeroBrandMark } from './Brand.tsx'
+import { installFavicon } from './favicon.ts'
 import { en, zh, type HailiangBrandKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -23,6 +25,7 @@ export const inject = ['slots', 'locale']
 /** Register the Hailiang identity wherever the sidebar declares its brand slots. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-brand-hailiang: dictionaries')
+  ctx.effect(() => installFavicon(favicon), 'ui-brand-hailiang: favicon')
   ctx.slots.inject('sidebar.brand.mark', () =>
     ctx.slots.inject('sidebar.brand.name', function* () {
       yield ctx.slots.register({ name: 'sidebar.brand.mark' }, HailiangBrandMark)
