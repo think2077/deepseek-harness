@@ -57,14 +57,13 @@ yum install -y python3
 
 ### 2.1 解压源码
 
-把源码包上传到服务器后解压：
+把源码包上传到服务器后解压。包内顶层就是 `deepseek-harness/`，直接解压到 `/opt` 即可得到仓库根 `/opt/deepseek-harness/`：
 
 ```
-mkdir -p /opt/deepseek-harness
-cd /opt/deepseek-harness
+cd /opt
 tar xzf /path/to/deepseek-harness-src-*.tar.gz
-# 解压后当前目录下出现 deepseek-harness/
-cd deepseek-harness
+# 解压后得到仓库根 /opt/deepseek-harness/
+cd /opt/deepseek-harness
 ```
 
 ### 2.2 安装依赖
@@ -193,7 +192,7 @@ Environment=DSH_CLIENT_COMMIT_HASH=c70a0f7
 Environment=DSH_PERMISSION_MODE=danger-full-access
 Environment=DEEPSEEK_API_KEY=sk-你的实际API_KEY
 Environment=DSH_WEB_LAUNCH_TOKEN=p6MWVM5b4RvRwCnQyziXAVm7eZBMeVocGTuMk6BrDBI
-ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /opt/deepseek-harness/deepseek-harness/apps/cli/lib/bin.js --profile web --trusted-host 115.159.198.180 --port 3080 --host 127.0.0.1
+ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /opt/deepseek-harness/apps/cli/lib/bin.js --profile web --trusted-host 115.159.198.180 --port 3080 --host 127.0.0.1
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -209,7 +208,7 @@ EOF
 | 占位符 | 说明 |
 | --- | --- |
 | `/root/.nvm/versions/node/v22.19.0/bin/node` | 第 6.1 步 `which node` 的输出 |
-| `/opt/deepseek-harness/deepseek-harness` | 源码解压后的实际路径（`/opt/deepseek-harness` + 解压出的 `deepseek-harness/` 子目录） |
+| `/opt/deepseek-harness` | 源码仓库根（源码包解压到 `/opt` 后得到的就是这一层） |
 | `/opt/dsh-workspace` | 第 4 步创建的工作区目录（agent 产出目录，文件预览/下载的根） |
 | `c70a0f7` | 你的源码 commit hash（7 位） |
 | `sk-你的实际API_KEY` | DeepSeek API key |
@@ -281,7 +280,7 @@ EOF
 
 把 `server_name` 改成你的 IP 或域名。
 
-> 用飞书登录时必须在 HTTPS 下访问：登录 cookie 带 `Secure`，http 站点会落不下 cookie，表现为反复要求登录。证书可以在 Nginx 上加，也可以交给宝塔/云厂商开 HTTPS。
+> 飞书登录现在 http 也能跑：cookie 只在 `https` 时带 `Secure`，http 下正常写入。但 OAuth 的 `code` 和登录 cookie 在 http 上是明文传输，生产环境建议加 HTTPS。
 
 ### 7.3 测试并重载
 
@@ -343,7 +342,7 @@ http://你的IP或域名/?token=xxx
 ### 9.2 飞书侧配置（open.feishu.cn 开发者后台）
 
 1. **创建应用**：开发者后台 → 创建企业自建应用，记下 App ID（`cli_xxx`）和 App Secret。
-2. **安全设置 → 重定向 URL**：填 `https://<你的域名>/auth/feishu/callback`。必须与 patch 里 `publicOrigin` 完全一致（协议、域名、端口、路径都要逐字符对齐），不一致时飞书会直接报 redirect_uri 错误。
+2. **安全设置 → 重定向 URL**：填 `<publicOrigin>/auth/feishu/callback`。必须与 patch 里 `publicOrigin` 完全一致（协议、域名、端口、路径都要逐字符对齐），不一致时飞书会直接报 redirect_uri 错误。飞书允许 `http://`（含 IP + 端口）作为回调地址，生产建议用 https。
 3. **权限管理**：`authen/v1/user_info` 的基础字段（`open_id`、`name`、`tenant_key`）不需要额外权限，登录即可拿到；需要邮箱、手机号时再另行申请。
 4. **可用范围**：把要使用的人或部门加进去，不在范围内的人点授权会被拒绝。
 5. **版本管理与发布**：创建版本 → 申请发布 → 企业管理员审核通过。这一步最容易被漏，未发布时前面配的可用范围和重定向 URL 都不会生效。
@@ -376,7 +375,7 @@ patch 文件（可放仓库根目录，示例 `./feishu.patch.yml`；仓库里�
 
 - patch 的 `config` 是**整体替换**，不是深合并：`trustedHosts` 必须把这些值重新列全。
 - `appSecretEnv` 填的是**环境变量名**，不是密钥本身。
-- `publicOrigin` 必须是规范化 HTTPS 源（只有 `127.0.0.1` / `localhost` 这类回环允许 http），其 host:port 还必须在 `trustedHosts` 里。
+- `publicOrigin` 必须是规范化 origin（`http(s)://host[:port]`，不带路径、末尾斜杠或账号密码），其 host:port 还必须在 `trustedHosts` 里。
 - `tenantKeys` 留空数组表示不限企业（仅开发用）；生产环境写死本企业的 `tenant_key`，避免外部企业账号登录。
 - `--patch` 覆盖层里不要用 `!!js` 表达式（只在 bundle 层生效），这些值直接写字面量。
 
@@ -389,8 +388,8 @@ patch 文件（可放仓库根目录，示例 `./feishu.patch.yml`；仓库里�
 ...
 Environment=FEISHU_APP_SECRET=cli_xxxxxxxxxxxx_secret
 EnvironmentFile=-/root/.dsh/feishu.env
-ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /opt/deepseek-harness/deepseek-harness/apps/cli/lib/bin.js \
-  --profile web --patch /opt/deepseek-harness/deepseek-harness/feishu.patch.yml \
+ExecStart=/root/.nvm/versions/node/v22.19.0/bin/node /opt/deepseek-harness/apps/cli/lib/bin.js \
+  --profile web --patch /opt/deepseek-harness/feishu.patch.yml \
   --port 3080 --host 127.0.0.1
 ```
 
@@ -448,13 +447,45 @@ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://dsh.example.co
 上传新的源码包后执行：
 
 ```
-cd /opt/deepseek-harness/deepseek-harness
+cd /opt/deepseek-harness
 tar xzf new-src.tgz
+pnpm run clean            # 关键：删除旧 lib/ 与 *.tsbuildinfo
 pnpm install
 export DSH_CLIENT_COMMIT_HASH=新的hash
 pnpm run build
 systemctl restart dsh-web
 ```
+
+**为什么必须 `pnpm run clean`**：`build:lib` 用的是 `tsc -b` 增量构建，依赖仓库根目录的 `tsconfig.host.tsbuildinfo` / `tsconfig.client.tsbuildinfo`。源码包里不含 `lib/`，但服务器上旧的 `lib/` 和 tsbuildinfo 会保留；tar 解压出的源码 mtime 往往不比旧产物新，tsc 就判定“没有变化”而跳过编译。表现就是：**新增的插件（没有旧产物）被真正构建了，其他既有包仍是旧逻辑**。`clean` 会删掉所有 `lib/`、`*.tsbuildinfo` 和孤儿目录，强制全量重建。
+
+如果 `clean` 后仍然异常，说明源码目录里还残留了旧版本已删除的源文件（tar 只覆盖不删除）。最干净的做法是整目录替换：
+
+```
+mv /opt/deepseek-harness /opt/deepseek-harness.old
+cd /opt
+tar xzf new-src.tgz
+cd /opt/deepseek-harness
+pnpm install
+export DSH_CLIENT_COMMIT_HASH=新的hash
+pnpm run build
+systemctl restart dsh-web
+```
+
+如果服务端产物确认是新的（`apps/cli/lib/bin.js` 与 `packages/**/lib` 时间戳都是刚构建的），但运行行为仍是旧的，检查 profile 的模块缓存，删掉后让启动时重建：
+
+```
+rm -rf /root/.dsh/profiles/web/.dsh-module-fallback
+systemctl restart dsh-web
+```
+
+构建完成后确认产物确实是新的：
+
+```
+ls -l apps/cli/lib/bin.js
+find packages -path '*/lib/*' -name '*.js' -newermt '-30 minutes' | wc -l
+```
+
+浏览器端加载的是 `apps/web/dist` 与各插件的 client bundle，重启后如果界面仍显示旧行为，强制刷新浏览器缓存（`Cmd+Shift+R` / `Ctrl+Shift+R`）。
 
 ### 更新 preset / 知识库
 
@@ -527,10 +558,12 @@ nginx -t && nginx -s reload
 | WebSocket 连接失败 | Nginx 没配 Upgrade/Connection | 确认有 `proxy_set_header Upgrade $http_upgrade` |
 | 启动报 `missing Feishu secret environment variable <名字>` | `appSecretEnv` 填成了 App Secret 本身 | 改成环境变量名，并确认该变量已 `export` 或写进 systemd |
 | 启动报 `feishu.publicOrigin host "..." is not in trustedHosts` | patch 的 `trustedHosts` 没包含公网 host:port | 把 `publicOrigin` 的 host:port 加进 `trustedHosts`（注意 patch 是整体替换） |
-| 启动报 `publicOrigin must be a canonical HTTPS origin` | 写了 `http://` 且不是回环地址 | 生产用 https；本地调试才用 `http://127.0.0.1:3080` |
+| 启动报 `publicOrigin must be a canonical origin` | URL 带路径、末尾斜杠，或含用户名密码 | 只写 `http(s)://host[:port]`，不带路径和末尾 `/` |
 | 飞书授权页报 redirect_uri 不匹配（如 20029） | 后台重定向 URL 与 `publicOrigin` 不一致 | 两处逐字符对齐，路径固定 `/auth/feishu/callback` |
 | 授权后 403「当前企业无权访问」 | `tenantKeys` 不含该账号所属企业 | 填正确的 `tenant_key`，或开发期先留空数组 |
-| 登录成功后刷新又要求登录 | 非 HTTPS 时 Secure cookie 落不下，或 Nginx 改了 Host 头 | 走 HTTPS，并保留 `proxy_set_header Host $host` |
+| 登录成功后刷新又要求登录 | Nginx 改了 Host 头，或 cookie 的 domain 与实际访问地址不一致 | 保留 `proxy_set_header Host $host`；http 模式下 cookie 不带 Secure，可正常落 |
 | 启动报 `Session ownership references a missing account` | 手动删过账号，残留登录/归属记录（旧版本代码） | 当前版本启动时会自动清理并打 warn；旧包需清 `~/.dsh/storages/web_accounts.json` 里对应行 |
 | 飞书模式下左侧「我的审核」「知识库」不见了 | 客户端插件被个人模式开关挡住 | 用当前源码构建（含 `ui-knowledge-base` 修复），并重启服务 |
 | 设置面板里没有「Models」「Plugins」 | 当前账号不是管理员（这两个分区只给管理员注册） | 把该账号的 `users.<id>.admin` 改成 `true` 后重启，参考 9.5 第 8 条 |
+| 更新后新插件生效，其他功能仍是旧逻辑 | 旧 `lib/` 与 `*.tsbuildinfo` 残留，`tsc -b` 增量构建跳过既有包 | `pnpm run clean` → `pnpm install` → `pnpm run build` → 重启 |
+| 重启后界面仍显示旧版本 | 浏览器缓存了旧 `client.js` / `dist` | 强制刷新（`Cmd+Shift+R` / `Ctrl+Shift+R`） |

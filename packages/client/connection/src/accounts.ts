@@ -68,10 +68,8 @@ export class WebAccounts extends Service {
     super(ctx, 'webAccounts')
     this.origin = new URL(config.publicOrigin)
     this.workspaceRoot = config.workspaceRoot
-    if (this.origin.origin !== config.publicOrigin || this.origin.username || this.origin.password
-      || (this.origin.protocol !== 'https:' && !(this.origin.protocol === 'http:'
-        && ['localhost', '127.0.0.1', '[::1]'].includes(this.origin.hostname)))) {
-      throw new Error('feishu.publicOrigin must be a canonical HTTPS origin (loopback HTTP is allowed)')
+    if (this.origin.origin !== config.publicOrigin || this.origin.username || this.origin.password) {
+      throw new Error('feishu.publicOrigin must be a canonical origin')
     }
     if (!isAbsolute(config.workspaceRoot)) throw new Error('feishu.workspaceRoot must be absolute')
     this.allowedTenants = config.tenantKeys ?? []
