@@ -57,7 +57,7 @@ export function Projects({ t, useProjects, save, archive, restore, enter, refres
     (project.status === 'archived') === archived && (stage === '' || stage === project.stage)
     && `${project.title} ${project.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) ?? []
   return <main className={css.page}>
-    <header className={css.header}><div><h1>{t('nav')}</h1><p>{t('intro')}</p><p>{t('shared')}</p></div>
+    <header className={css.header}><div><h1>{t('nav')}</h1><p>{t('intro')}</p></div>
       <div className={css.actions}><Button variant="outline" disabled={busy} onClick={() => { void run(refresh) }}>{t('retry')}</Button>
         {state.catalog?.canManage && <Button variant="primary" onClick={() => { setError(undefined); setDraft({ name: '', description: '', stage: 'engagement' }) }}>{t('create')}</Button>}</div>
     </header>
