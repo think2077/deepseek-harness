@@ -350,6 +350,9 @@
     - id: ui-projects
       name: '@deepseek-ai/dsh-client-ui-projects'
 
+    - id: ui-management-cockpit
+      name: '@deepseek-ai/dsh-client-ui-management-cockpit'
+
     - id: ui-digital-employees
       name: '@deepseek-ai/dsh-client-ui-digital-employees'
 
