@@ -35,7 +35,7 @@ const NODES: readonly WorkbenchNode[] = Array.from({ length: 10 }, (_, index) =>
     : [{
       labelKey: `node${index}Tool` as WorkbenchLocaleKey,
       action: index === 2 ? 'launch' : index === 5 ? 'preview' : 'disabled',
-      ...(index === 2 ? { presetId: 'solution-expert' } : {}),
+      ...(index === 2 ? { presetId: 'solution-assistant' } : {}),
     }],
 }))
 
