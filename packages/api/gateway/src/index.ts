@@ -644,7 +644,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
         'session', 'workspace', 'workspaceFiles', 'fileReferences', 'skills', 'commands', 'goals',
         'permissionPresets', 'fileUploads', 'terminal', 'messageFeedback', 'sessionFeedback',
         'sessionReferenceResolver', 'knowledgeBase', 'llm', 'credentials', 'settings',
-        'pluginInventory', 'dynamicCordisRunner',
+        'pluginInventory', 'dynamicCordisRunner', 'project',
       ]
       if (!shared.includes(request.namespace)
         && !(request.namespace === 'agentPresets' && ['list', 'read', 'select'].includes(request.method))) {

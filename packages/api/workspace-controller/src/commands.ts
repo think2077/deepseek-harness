@@ -73,6 +73,7 @@ export class WorkspaceCommands {
     }
     return this.enqueue(async () => {
       const workspace = this.requireWorkspace(request.workspaceId)
+      if (workspace.project !== undefined) throw new RemoteError('gateway/bad-request', 'Edit projects through project management.', {})
       if (title !== workspace.title) {
         if (this.ctx.workspaceRegistry.list().some(candidate =>
           candidate.id !== workspace.id && candidate.title === title)) {
@@ -84,7 +85,7 @@ export class WorkspaceCommands {
         }
         await workspace.setTitle(title)
       }
-      return { workspace: workspaceView(workspace) }
+      return { workspace: { ...workspaceView(workspace), sessionIds: workspace.sessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false) } }
     })
   }
 
@@ -96,6 +97,9 @@ export class WorkspaceCommands {
   delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
     this.ctx.get('webAccounts')?.rejectWorkspaceMutation()
     return this.enqueue(async () => {
+      if (this.requireWorkspace(request.workspaceId).project !== undefined) {
+        throw new RemoteError('gateway/bad-request', 'Archive projects through project management.', {})
+      }
       if (!await this.ctx.workspaceRegistry.delete(WorkspaceId(request.workspaceId))) {
         throw workspaceNotFound(request.workspaceId)
       }
@@ -132,7 +136,7 @@ export class WorkspaceCommands {
   async insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue> {
     this.ctx.get('webAccounts')?.assertSession(request.sessionId)
     const accounts = this.ctx.get('webAccounts')
-    if (accounts !== undefined && request.workspaceId !== accounts.workspace().id) accounts.rejectWorkspaceMutation()
+    accounts?.assertWorkspace(request.workspaceId)
     if (request.beforeSessionId !== undefined) accounts?.assertSession(request.beforeSessionId)
     const workspace = this.requireWorkspace(request.workspaceId)
     try {
@@ -152,7 +156,7 @@ export class WorkspaceCommands {
         { cause: error },
       )
     }
-    return { workspace: workspaceView(workspace) }
+    return { workspace: { ...workspaceView(workspace), sessionIds: workspace.sessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false) } }
   }
 
   /**

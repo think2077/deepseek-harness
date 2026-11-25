@@ -88,11 +88,10 @@ export class SessionCommandController {
   async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
     const accounts = this.ctx.get('webAccounts')
     if (accounts !== undefined) {
-      const fixed = accounts.workspace()
-      if ((request.workspaceId !== undefined && request.workspaceId !== fixed.id)
-        || (request.cwd !== undefined && request.cwd !== fixed.path)) accounts.rejectWorkspaceMutation()
+      const selected = request.workspaceId === undefined ? accounts.workspace() : accounts.assertWorkspace(request.workspaceId)
+      if (request.cwd !== undefined && request.cwd !== selected.path) accounts.rejectWorkspaceMutation()
       request = {
-        workspaceId: fixed.id,
+        workspaceId: selected.id,
         ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
       }
@@ -109,6 +108,9 @@ export class SessionCommandController {
           workspaceId: request.workspaceId,
         })
       }
+    }
+    if (workspace?.project?.status === 'archived') {
+      throw new RemoteError('gateway/bad-request', 'Restore the archived project before creating a Session.', {})
     }
     const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
     await accounts?.reserveSession(sessionId)
@@ -333,6 +335,9 @@ export class SessionCommandController {
       )
     }
     const agent = await this.resolveAgent(request.sessionId)
+    if (this.ctx.workspaceRegistry.list().some(workspace => workspace.path === agent.session.header.cwd && workspace.project?.status === 'archived')) {
+      throw new RemoteError('gateway/bad-request', 'Restore the archived project before starting new work.', {})
+    }
     if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
     const selection = this.agents.selectionFor(agent).current
     if (!routeServed(this.ctx, selection.provider)) {

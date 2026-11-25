@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { compareOrRefreshGolden, launchWebScaffold, seedSession, webSnapshotMode, type WebScaffold } from './scaffold.ts'
+import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 
 const ROOT = fileURLToPath(new URL('../../../snapshots/web/feishu-personal-workspace', import.meta.url))
@@ -107,4 +107,68 @@ describe('web e2e: Feishu personal Workspace', () => {
     const forbidden = await originalFetch(scaffold!.baseUrl + '/api/session.export?sessionId=feishu-recorded-history', { headers: { cookie: bobCookie } })
     expect(forbidden.status).toBe(404)
   })
+
+  it('shares project workspaces across accounts while preserving private conversations', async () => {
+    const app = scaffold!
+    await alice.getByRole('button', { name: 'Projects', exact: true }).click()
+    await bob.getByRole('button', { name: 'Projects', exact: true }).click()
+    await alice.getByRole('button', { name: 'New project', exact: true }).waitFor()
+    expect(await bob.getByRole('button', { name: 'New project', exact: true }).count()).toBe(0)
+    await alice.getByRole('button', { name: 'New project', exact: true }).click()
+    const dialog = alice.getByRole('dialog', { name: 'New project' })
+    await dialog.getByLabel('Project name', { exact: true }).fill('Shared education project')
+    await dialog.getByLabel('Description', { exact: true }).fill('A shared government education project')
+    await dialog.getByLabel('Project stage', { exact: true }).selectOption('contracting')
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    const bobCard = bob.locator('article').filter({ hasText: 'Shared education project' })
+    await bobCard.waitFor()
+    expect(await bobCard.getByText('Contract negotiation and signing', { exact: true }).count()).toBe(1)
+    await expect.poll(() => bob.getByRole('treeitem').filter({ hasText: 'Shared education project' }).count()).toBe(1)
+    const project = app.ctx.projects.list().find(item => item.title === 'Shared education project')!
+    const workspace = app.ctx.workspaceRegistry.get(project.id)!
+    expect(workspace.path.split('/').at(-1)).toBe(project.id)
+    await writeFile(join(workspace.path, 'shared.txt'), 'Shared project file')
+    const bobRead = await originalFetch(app.baseUrl + '/api/project/update', {
+      method: 'POST', headers: { cookie: bobCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'client-request', rpcId: 'bob-edit-project', method: 'project/update', payload: { args: { request: { projectId: project.id, stage: 'operation' } } } }),
+    })
+    expect(await bobRead.json()).toMatchObject({ result: { ok: false, error: { code: 'project/forbidden' } } })
+    await alice.locator('article').filter({ hasText: 'Shared education project' }).getByRole('button', { name: 'Enter workspace' }).click()
+    await expect.poll(() => app.ctx.agents.list().filter(agent => agent.session.header.cwd === workspace.path).length).toBe(1)
+    const privateSession = app.ctx.agents.list().find(agent => agent.session.header.cwd === workspace.path)!.id
+    const forbidden = await originalFetch(app.baseUrl + '/api/session.export?sessionId=' + encodeURIComponent(privateSession), { headers: { cookie: bobCookie } })
+    expect(forbidden.status).toBe(404)
+    const accounts = app.ctx.webAccounts
+    const bobRequest = { headers: { host: new URL(app.baseUrl).host, cookie: bobCookie } }
+    await accounts.run(bobRequest, async () => {
+      const frames = app.ctx.workspaceController.follow(new AbortController().signal)[Symbol.asyncIterator]()
+      const frame = await frames.next()
+      if (frame.done || frame.value.type !== 'baseline') throw new Error('Workspace baseline missing')
+      expect(frame.value.value.items.find(item => item.workspaceId === project.id)?.sessionIds).not.toContain(privateSession)
+      await frames.return?.()
+      expect(accounts.ownsPath(join(workspace.path, 'shared.txt'))).toBe(true)
+    })
+    await alice.getByRole('button', { name: 'Projects', exact: true }).click()
+    const aliceCard = alice.locator('article').filter({ hasText: 'Shared education project' })
+    await aliceCard.getByRole('button', { name: 'Edit', exact: true }).click()
+    const edit = alice.getByRole('dialog', { name: 'Edit', exact: true })
+    await edit.getByLabel('Project stage').selectOption('pilot')
+    await edit.getByRole('button', { name: 'Save', exact: true }).click()
+    await edit.waitFor({ state: 'hidden' })
+    await bobCard.getByText('Pilot operation', { exact: true }).waitFor()
+    expect(app.ctx.projects.get(project.id)?.description).toBe('A shared government education project')
+    await aliceCard.getByRole('button', { name: 'Archive', exact: true }).click()
+    await alice.getByRole('dialog', { name: 'Archive project' }).getByRole('button', { name: 'Archive', exact: true }).click()
+    await expect.poll(() => bob.getByRole('treeitem').filter({ hasText: 'Shared education project' }).count()).toBe(0)
+    expect(await readFile(join(workspace.path, 'shared.txt'), 'utf8')).toBe('Shared project file')
+    await alice.getByRole('button', { name: 'Archived', exact: true }).click()
+    await aliceCard.getByRole('button', { name: 'Restore', exact: true }).click()
+    await bobCard.waitFor()
+    const snapshot = await captureStableAria(bob, 'main', app.workspaceCwd)
+    const stable = snapshot.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, '{{timestamp}}')
+    const expected = fileURLToPath(new URL('./expected/project-management/catalog.expected.md', import.meta.url))
+    await compareOrRefreshGolden(expected, stable, webSnapshotMode())
+  })
+
 })

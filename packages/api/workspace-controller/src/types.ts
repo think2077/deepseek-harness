@@ -6,7 +6,7 @@
  */
 
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { WorkspaceId, ProjectMetadata } from '@deepseek-ai/dsh-workspace/types'
 
 export type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-directory-picker/types'
@@ -14,6 +14,8 @@ export type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-host-dir
 /** One durable Workspace projected for browser consumers. */
 export interface WorkspaceView {
   readonly workspaceId: WorkspaceId
+  /** Present for a shared project Workspace. */
+  readonly project?: ProjectMetadata
   /** Canonical host directory path. */
   readonly path: string
   /** User-visible title. */

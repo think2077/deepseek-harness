@@ -9,15 +9,47 @@ import { z } from 'zod'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
-import type { WorkspaceId } from './types.ts'
+import type { WorkspaceId, ProjectMetadata } from './types.ts'
+import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Workspace id schema at the durable boundary; branding has no runtime representation. */
 const workspaceId = z.string().transform(value => value as WorkspaceId)
+
+/** Project lifecycle stages — covers gov/edu projects from outreach to steady ops. */
+export const projectStage = z.enum([
+  'engagement',
+  'discovery',
+  'proposal',
+  'approval',
+  'contracting',
+  'preparation',
+  'pilot',
+  'acceptance',
+  'operation',
+])
+
+
+/** Whether the project is actively worked on or archived (files + sessions retained). */
+export const projectStatus = z.enum(['active', 'archived'])
+
+
+/** Optional project metadata layered onto a regular workspace. `undefined` means personal workspace. */
+export const projectMetadata: z.ZodType<ProjectMetadata> = z.object({
+  description: z.string().default(''),
+  createdBy: z.string().transform(value => value as Branded<'WebUserId'>),
+  status: projectStatus.default('active'),
+  stage: projectStage.default('engagement'),
+})
+
 
 /**
  * Durable shape of one workspace record. `path` is the `fs.realpath` canon
  * stamped at create; `sessionIds` is the ordered ownership account (array
  * order is display order); timestamps are ISO-8601 strings.
+ *
+ * When `project` is present the workspace is a shared project — its id IS
+ * the project id and every logged-in user may see it. Records without
+ * `project` remain personal and private to their owning user.
  */
 export const workspaceRecord = z.object({
   path: z.string(),
@@ -25,6 +57,7 @@ export const workspaceRecord = z.object({
   sessionIds: z.array(z.string().transform(value => brandString<SessionId>(value))),
   createdAt: z.string(),
   updatedAt: z.string(),
+  project: projectMetadata.optional(),
 })
 
 /** One stored workspace record, inferred from {@link workspaceRecord}. */

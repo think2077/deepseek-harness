@@ -8,6 +8,19 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-typert-protocol'
+/** Project progress, independent of archival state. */
+export type ProjectStage = 'engagement' | 'discovery' | 'proposal' | 'approval' | 'contracting' | 'preparation' | 'pilot' | 'acceptance' | 'operation'
+
+/** Whether new work can be started in a project. */
+export type ProjectStatus = 'active' | 'archived'
+
+/** Shared project attributes stored with the Workspace record. */
+export interface ProjectMetadata {
+  readonly description: string
+  readonly createdBy: Branded<'WebUserId'>
+  readonly status: ProjectStatus
+  readonly stage: ProjectStage
+}
 
 /**
  * Identifies one workspace record. A generated uuid, never the path: path
@@ -109,4 +122,18 @@ export interface Workspace {
    * @returns `'ok'` when the directory exists, `'missing-dir'` otherwise.
    */
   status(): Promise<'ok' | 'missing-dir'>
+
+  /**
+   * Project metadata when this workspace is a shared project, or `undefined`
+   * for personal workspaces. Non-nullish presence is the sole signal that a
+   * workspace is a project.
+   */
+  readonly project: ProjectMetadata | undefined
+
+  /**
+   * Update mutable project fields. Idempotent — passing identical values resolves without writing.
+   * @param patch - fields to update; omitted fields keep their current values.
+   * @param title - optional replacement Workspace title, committed with the metadata.
+   */
+  updateProject(patch: Partial<Omit<ProjectMetadata, 'createdBy'>>, title?: string): Promise<void>
 }

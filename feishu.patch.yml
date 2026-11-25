@@ -15,3 +15,7 @@
       # Empty list accepts any tenant that can authorize this app (dev only).
       # Production: pin your tenant_key here.
       tenantKeys: []
+
+- id: projects
+  config:
+    root: /Users/think/.dsh/projects

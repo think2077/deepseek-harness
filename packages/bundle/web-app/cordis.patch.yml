@@ -115,6 +115,14 @@
       name: '@deepseek-ai/dsh-api-settings-controller'
 
     # Workspace commands and reconnect-safe projection over Typert Remote.
+    - id: projects
+      name: '@deepseek-ai/dsh-project'
+      config:
+        root: !!js dshHomePath('projects')
+
+    - id: project-controller
+      name: '@deepseek-ai/dsh-api-project-controller'
+
     - id: workspace-controller
       name: '@deepseek-ai/dsh-api-workspace-controller'
 
@@ -338,6 +346,9 @@
     - id: ui-agent-preset
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
+
+    - id: ui-projects
+      name: '@deepseek-ai/dsh-client-ui-projects'
 
     - id: ui-digital-employees
       name: '@deepseek-ai/dsh-client-ui-digital-employees'

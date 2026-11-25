@@ -11,6 +11,7 @@
 import { stat } from 'node:fs/promises'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
+import type { ProjectMetadata } from './types.ts'
 import type { WorkspaceRecord } from './spec.ts'
 import type { Workspace, WorkspaceId } from './types.ts'
 import { realpathNormalize } from './paths.ts'
@@ -98,6 +99,10 @@ export class WorkspaceEntity implements Workspace {
     return this.record.updatedAt
   }
 
+  get project(): ProjectMetadata | undefined {
+    return this.record.project
+  }
+
   get sessionIds(): readonly SessionId[] {
     return this.record.sessionIds.filter(id => this.host.sessionPath(id) === this.record.path)
   }
@@ -181,10 +186,19 @@ export class WorkspaceEntity implements Workspace {
     try {
       return (await stat(this.record.path)).isDirectory() ? 'ok' : 'missing-dir'
     } catch {
-      // Any stat failure (ENOENT, dangling parent, permission loss) means the
-      // directory is not usable right now; the record itself never mutates.
       return 'missing-dir'
     }
+  }
+
+  async updateProject(patch: Partial<Omit<ProjectMetadata, 'createdBy'>>, title?: string): Promise<void> {
+    await this.mutate((record) => {
+      if (record.project === undefined) throw new Error(`workspace '${record.path}' is not a project`)
+      const next = { ...record.project, ...patch }
+      if ((title === undefined || title === record.title)
+        && next.description === record.project.description && next.stage === record.project.stage
+        && next.status === record.project.status) return record
+      return { ...record, ...(title === undefined ? {} : { title }), project: next }
+    })
   }
 
   /**

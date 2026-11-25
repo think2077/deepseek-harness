@@ -25,6 +25,7 @@ import type {
 export function workspaceView(workspace: Workspace): WorkspaceView {
   return {
     workspaceId: workspace.id,
+    ...(workspace.project === undefined ? {} : { project: workspace.project }),
     path: workspace.path,
     title: workspace.title,
     sessionIds: [...workspace.sessionIds],
@@ -37,6 +38,7 @@ function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceVie
   const record: WorkspaceRecord = workspaceRecord.parse(value)
   return {
     workspaceId: WorkspaceId(workspaceId),
+    ...(record.project === undefined ? {} : { project: record.project }),
     path: record.path,
     title: record.title,
     sessionIds: [...record.sessionIds],
@@ -47,7 +49,7 @@ function changedWorkspaceView(workspaceId: string, value: unknown): WorkspaceVie
 
 /** Owns Workspace domain observation and all active follow generations. */
 export class WorkspaceFeed {
-  private readonly followers = new Map<WorkspaceFollower, { userId: WebUserId; workspaceId: string } | undefined>()
+  private readonly followers = new Map<WorkspaceFollower, { userId?: WebUserId; workspaceId?: string; visible: Set<string> }>()
   private knownIds: Set<string>
   private order: readonly string[]
   private archived: readonly string[]
@@ -72,7 +74,10 @@ export class WorkspaceFeed {
   baseline(): WorkspaceBaseline {
     const accounts = this.ctx.get('webAccounts')
     return {
-      items: (accounts === undefined ? this.ctx.workspaceRegistry.list() : [accounts.workspace()]).map(workspaceView),
+      items: (accounts === undefined ? this.ctx.workspaceRegistry.list().filter(workspace => workspace.project?.status !== 'archived')
+        : accounts.visibleWorkspaces()).map(workspace => ({ ...workspaceView(workspace),
+        sessionIds: workspace.sessionIds.filter(id => accounts?.ownsSession(id) !== false),
+      })),
       archivedSessionIds: this.ctx.workspaceRegistry.archivedSessionIds.filter(id => this.ctx.get('webAccounts')?.ownsSession(id) !== false),
     }
   }
@@ -86,9 +91,13 @@ export class WorkspaceFeed {
     signal.throwIfAborted()
     const follower = new WorkspaceFollower()
     const accounts = this.ctx.get('webAccounts')
-    this.followers.set(follower, accounts === undefined ? undefined : { userId: accounts.userId(), workspaceId: accounts.workspace().id })
+    const baseline = this.baseline()
+    this.followers.set(follower, {
+      ...(accounts === undefined ? {} : { userId: accounts.userId(), workspaceId: accounts.workspace().id }),
+      visible: new Set(baseline.items.map(workspace => workspace.workspaceId)),
+    })
     try {
-      yield { type: 'baseline', value: this.baseline() }
+      yield { type: 'baseline', value: baseline }
       yield* follower.read(signal)
     } finally {
       this.followers.delete(follower)
@@ -136,18 +145,31 @@ export class WorkspaceFeed {
 
   private publish(frame: Exclude<WorkspaceFollowFrame, { readonly type: 'baseline' }>): void {
     for (const [follower, identity] of this.followers) {
-      if (identity === undefined) { follower.push(frame); continue }
       const accounts = this.ctx.get('webAccounts')
-      if (accounts === undefined) continue
       switch (frame.type) {
-        case 'upsert':
-          if (frame.workspace.workspaceId === identity.workspaceId) follower.push(frame)
+        case 'upsert': {
+          const project = frame.workspace.project
+          const visible = project === undefined
+            ? identity.userId === undefined || frame.workspace.workspaceId === identity.workspaceId
+            : project.status === 'active'
+          if (visible) {
+            identity.visible.add(frame.workspace.workspaceId)
+            follower.push({ ...frame, workspace: { ...frame.workspace,
+              sessionIds: frame.workspace.sessionIds.filter(
+                id => identity.userId === undefined || accounts?.ownerOf(id) === identity.userId,
+              ),
+            } })
+          } else if (identity.visible.delete(frame.workspace.workspaceId)) {
+            follower.push({ type: 'remove', workspaceId: frame.workspace.workspaceId })
+          }
           break
+        }
         case 'remove':
-          if (frame.workspaceId === identity.workspaceId) follower.push(frame)
+          if (identity.visible.delete(frame.workspaceId)) follower.push(frame)
           break
-        case 'order': follower.push({ ...frame, workspaceIds: frame.workspaceIds.filter(id => id === identity.workspaceId) }); break
-        case 'archived': follower.push({ ...frame, archivedSessionIds: frame.archivedSessionIds.filter(id => accounts.ownerOf(id) === identity.userId) }); break
+        case 'order': follower.push({ ...frame, workspaceIds: frame.workspaceIds.filter(id => identity.visible.has(id)) }); break
+        case 'archived': follower.push({ ...frame, archivedSessionIds: frame.archivedSessionIds.filter(id =>
+          identity.userId === undefined || accounts?.ownerOf(id) === identity.userId) }); break
       }
     }
   }

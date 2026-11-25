@@ -288,19 +288,44 @@ export class WebAccounts extends Service {
   }
 
   /**
+   * Workspaces visible to the current account: its personal directory and active projects.
+   * @returns visible Workspaces, including empty projects.
+   */
+  visibleWorkspaces(): Workspace[] {
+    const personal = this.workspace()
+    return this.ctx.workspaceRegistry.list().filter(workspace =>
+      workspace.id === personal.id || workspace.project?.status === 'active')
+  }
+
+  /**
+   * Resolve an allowed Workspace for new work; archived projects are refused.
+   * @param id - Target Workspace identity.
+   * @returns the visible personal or active shared Workspace.
+   */
+  assertWorkspace(id: Workspace['id']): Workspace {
+    const workspace = this.visibleWorkspaces().find(candidate => candidate.id === id)
+    if (workspace === undefined) throw new RemoteError('workspace/not-found', 'workspace not found', { workspaceId: id })
+    return workspace
+  }
+
+  /**
    * Reject Workspace mutations that the personal-space deployment does not offer.
    * @returns never; every call throws the fixed-Workspace rejection.
    */
   rejectWorkspaceMutation(): never { throw new RemoteError('gateway/bad-request', 'personal Workspace is fixed', {}) }
 
   /**
-   * Restrict a canonical filesystem path to the personal Workspace for browser file routes.
+   * Allow canonical browser file reads in the personal Workspace or shared projects.
    * @param path - canonical path returned by the owning filesystem provider.
    * @returns whether the path is inside the fixed personal directory.
    */
   ownsPath(path: string): boolean {
-    const delta = relative(this.workspace().path, path)
-    return delta === '' || (delta !== '..' && !delta.startsWith('..' + sep) && !isAbsolute(delta))
+    const personal = this.workspace()
+    return this.ctx.workspaceRegistry.list().some((workspace) => {
+      if (workspace.id !== personal.id && workspace.project === undefined) return false
+      const delta = relative(workspace.path, path)
+      return delta === '' || (delta !== '..' && !delta.startsWith('..' + sep) && !isAbsolute(delta))
+    })
   }
 
   private login(request: ConnectionTrustRequest): LoginContext | undefined {

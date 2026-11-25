@@ -23,6 +23,9 @@ import type { Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
 export type { Workspace } from './types.ts'
 export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
 export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
+export { projectStage, projectStatus, projectMetadata } from './spec.ts'
+export type { ProjectStage, ProjectStatus, ProjectMetadata } from './types.ts'
+import type { ProjectMetadata } from './types.ts'
 export { realpathNormalize } from './paths.ts'
 
 /** Identifies one workspace record (see `src/types.ts` for the brand rationale). */
@@ -147,19 +150,15 @@ export class WorkspaceRegistry extends Service {
    * Different canonical paths may share a display title.
    * @param path - Existing directory to own, in a fully qualified path spelling.
    * @param title - Display title used only when a new record is created.
+   * @param project - optional project identity and metadata committed in the initial record.
    * @returns the existing or newly durable workspace.
    */
-  // TODO: `title` lost its last production caller when the gateway's
-  // create-by-name branch was deleted
-  // (.agents/notes/archived/simplification/2026-07-31-one-route-to-add-a-workspace.md);
-  // drop the parameter with its @param clause and the `create(path, title?)`
-  // lines in this package's README pair.
-  async create(path: string, title?: string): Promise<Workspace> {
+  async create(path: string, title?: string, project?: { id: WorkspaceId; metadata: ProjectMetadata }): Promise<Workspace> {
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
     }
-    return await this.enqueueOperation(() => this.createCanonical(canonical, title))
+    return await this.enqueueOperation(() => this.createCanonical(canonical, title, project))
   }
 
   /**
@@ -304,7 +303,11 @@ export class WorkspaceRegistry extends Service {
     return undefined
   }
 
-  private async createCanonical(canonical: string, title?: string): Promise<WorkspaceEntity> {
+  private async createCanonical(
+    canonical: string,
+    title?: string,
+    project?: { id: WorkspaceId; metadata: ProjectMetadata },
+  ): Promise<WorkspaceEntity> {
     for (const entity of this.entities.values()) {
       if (entity.path === canonical) return entity
     }
@@ -312,11 +315,13 @@ export class WorkspaceRegistry extends Service {
     const workspaceName = title ?? defaultWorkspaceTitle(canonical)
     const table = this.requireTable()
     const state = this.requireState()
-    const id = WorkspaceId(randomUUID())
+    const id = project?.id ?? WorkspaceId(randomUUID())
+    if (this.entities.has(id)) throw new Error(`workspace '${id}' already exists`)
     const now = new Date().toISOString()
     const record: WorkspaceRecord = {
       path: canonical,
       title: workspaceName,
+      ...(project === undefined ? {} : { project: project.metadata }),
       sessionIds: [],
       createdAt: now,
       updatedAt: now,
@@ -673,14 +678,19 @@ export class WorkspaceRegistry extends Service {
     this.state = state
   }
 
+  /**
+   * Run `operation` on the registry's write chain after any pending recoveries
+   * finish. Useful for host-side services that need to compose multiple
+   * registry writes without allowing an intervening mutation to interleave.
+   * @param operation - Serialized critical section.
+   * @returns whatever `operation` resolves to.
+   */
   private enqueueOperation<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.operationTail.then(async () => {
-      // A committed delete may leave only its marker cleanup pending. Retry
-      // recovery before another create/delete can overwrite that pending operation record.
       await this.recoverPendingMutation()
       return await operation()
     })
-    this.operationTail = result.then(() => {}, () => {})
+    this.operationTail = result.then(() => {}, () => undefined)
     return result
   }
 }

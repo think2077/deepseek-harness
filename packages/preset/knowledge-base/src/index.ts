@@ -798,16 +798,25 @@ export class KnowledgeBase extends TypertRemoteService {
   }
 
   /**
-   * Project roots of the Workspaces this caller may see: a browser-account
-   * deployment narrows them to the caller's own fixed Workspace, so a shared
-   * Host never lists another person's directory as a knowledge project.
-   * @returns one read-only project root per visible Workspace.
+   * Project roots of the Workspaces this caller may see.
+   *
+   * Web deployment: every **project** workspace (carries `project` metadata)
+   * is visible to every logged-in user; personal workspaces (no `project`
+   * field) are visible only to their owning account. This keeps personal
+   * knowledge private while shared project knowledge shows up in every
+   * employee's knowledge base sidebar.
+   *
+   * Host deployment (no WebAccounts): the full registry is shown.
+   *
+   * Background / host-plane callers without identity see zero personal roots
+   * — but still see every project root, since project knowledge is meant to
+   * be discovered by agent-side tooling too.
    */
   private projectRoots(): readonly ResolvedRoot[] {
     const accounts = this.ctx.get('webAccounts')
     const workspaces = accounts === undefined
       ? this.ctx.workspaceRegistry.list()
-      : this.ownedWorkspaces(accounts)
+      : this.visibleWorkspaces(accounts)
     return workspaces.map(workspace => ({
       id: `project-${workspace.id}`,
       label: workspace.title,
@@ -818,20 +827,23 @@ export class KnowledgeBase extends TypertRemoteService {
   }
 
   /**
-   * Resolve the Workspace owned by the account attached to the current request.
-   * Calls without an identity (background or host-plane callers) see none, so
-   * personal knowledge is never exposed by accident.
-   * @param accounts - browser-account service owning the personal Workspace.
-   * @returns the caller's Workspace only, or an empty list without identity.
+   * Web-mode workspace visibility: every project (has `project` field) +
+   * the caller's own personal workspace. Background callers (userId missing)
+   * see projects only.
    */
-  private ownedWorkspaces(accounts: WebAccounts): readonly Workspace[] {
-    let own: Workspace
+  private visibleWorkspaces(accounts: WebAccounts): readonly Workspace[] {
+    const all = this.ctx.workspaceRegistry.list()
+    const projects = all.filter(ws => ws.project?.status === 'active')
+    let personal: Workspace | undefined
     try {
-      own = accounts.workspace()
+      personal = accounts.workspace()
     } catch {
-      return []
+      personal = undefined
     }
-    return this.ctx.workspaceRegistry.list().filter(workspace => workspace.path === own.path)
+    if (personal === undefined) return projects
+    const personalInAll = all.find(ws => ws.id === personal.id)
+    if (personalInAll === undefined) return projects
+    return [personalInAll, ...projects]
   }
 }
 

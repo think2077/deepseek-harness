@@ -235,7 +235,8 @@ export function WorkspacePicker({
   personalWorkspace,
   t,
 }: WorkspacePickerProps) {
-  if (personalWorkspace) return null
+  const hasProjects = useWorkspaces(state => state.items.some(workspace => workspace.project !== undefined))
+  if (personalWorkspace && !hasProjects) return null
   return (
     <WorkspacePickFlow
       t={t}
