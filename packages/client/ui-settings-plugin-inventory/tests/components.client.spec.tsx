@@ -143,6 +143,7 @@ describe('PluginInventorySettingsTab', () => {
         id: 'same-module',
         trust: 'user',
         isDefault: true,
+        skills: [],
         rows: [
           { entryId: 'tool-subagent-primary', moduleName: '@deepseek-ai/dsh-tool-subagent', enabled: true, fiberPhase: null },
           { entryId: longId, moduleName: '@deepseek-ai/dsh-tool-subagent', enabled: false, fiberPhase: null },
@@ -338,6 +339,7 @@ describe('PluginInventorySettingsTab', () => {
         id: 'solo',
         trust: 'user',
         isDefault: false,
+        skills: [],
         rows: [{ entryId: 'one', moduleName: '@fixture/one', enabled: true, fiberPhase: null }],
       }],
     })

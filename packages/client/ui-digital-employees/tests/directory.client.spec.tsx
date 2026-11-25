@@ -18,10 +18,11 @@ function mount(options: { current?: string; empty?: boolean; noWorkspace?: boole
     if (options.fail) throw new Error('Offline')
     return { presets: options.empty ? [] : presets, authorable: true, modeSelectionEnabled: true }
   })
-  const readInventory = vi.fn(async () => ({ entries: [], agentPresets: [{ id: 'sales', rows: [
-    { moduleName: '@example/research', enabled: true }, { moduleName: '@example/shell', enabled: false },
-    { moduleName: '@example/optional', enabled: 'conditional' },
-  ] }] }))
+  const readInventory = vi.fn(async () => ({ entries: [], agentPresets: [{ id: 'sales',
+    persona: { prefix: 'You are a sales assistant.\nFollow the checklist.' },
+    skills: [{ name: 'research', description: 'Research customer background.' }],
+    rows: [],
+  }] }))
   render(<DigitalEmployees {...({
     t: (key: DigitalEmployeesLocaleKey) => en[key], readRoster, readInventory, startAssistant,
     useSessions: (select: (state: unknown) => unknown) => select({ current: options.current }),
@@ -35,10 +36,11 @@ it('browses and searches the roster, and inspects plugin enablement without star
   await screen.findByText('Sales assistant')
   expect((screen.getAllByRole('button', { name: en.start })[1] as HTMLButtonElement).disabled).toBe(true)
   fireEvent.click(screen.getAllByRole('button', { name: en.details })[0]!)
-  expect(await screen.findByText('@example/research')).toBeTruthy()
-  expect(screen.getByText(en.enabled)).toBeTruthy()
-  expect(screen.getByText(en.disabled)).toBeTruthy()
-  expect(screen.getByText(en.conditional)).toBeTruthy()
+  expect(await screen.findByText(en.persona)).toBeTruthy()
+  expect(screen.getByText(/You are a sales assistant/)).toBeTruthy()
+  expect(screen.getByText(en.skills)).toBeTruthy()
+  expect(screen.getByText('research')).toBeTruthy()
+  expect(screen.getByText('Research customer background.')).toBeTruthy()
   expect(app.startAssistant).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: en.close }))
   fireEvent.change(screen.getByRole('textbox', { name: en.search }), { target: { value: 'customer' } })

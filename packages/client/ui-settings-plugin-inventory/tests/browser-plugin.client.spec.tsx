@@ -73,8 +73,8 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     // Shipped preset names resolve over the agent-preset dictionaries the
     // real plugin registers; user-authored metadata stays untranslated.
     b.locale.register('settings.agentPreset', 'zh', { presetStandardName: '标准模式' } as never)
-    expect(injected.presetName({ id: 'standard', trust: 'system', isDefault: true, rows: [] })).toBe('标准模式')
-    expect(injected.presetName({ id: 'mine', trust: 'user', name: '我自己的', isDefault: false, rows: [] })).toBe('我自己的')
+    expect(injected.presetName({ id: 'standard', trust: 'system', isDefault: true, skills: [], rows: [] })).toBe('标准模式')
+    expect(injected.presetName({ id: 'mine', trust: 'user', name: '我自己的', isDefault: false, skills: [], rows: [] })).toBe('我自己的')
     await b.ctx.fiber.dispose()
   })
 

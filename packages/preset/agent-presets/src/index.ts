@@ -42,14 +42,15 @@ import { discoverPresets, SHIPPED_PRESET_ROOT, USER_PRESET_DIR } from './discove
 import { copyComposition, deleteComposition, presetExists, readComposition } from './authoring.ts'
 import { livePresetMounts, mountPreset, serviceForAgent, standingMountFor } from './mount.ts'
 import {
-  fileComposition, mountedCompositionRows,
+  fileComposition, mountedCompositionRows, readPresetProfile,
   type AgentPresetComposition,
 } from './composition-inventory.ts'
 import type { AgentPreset, Config, PresetRoot } from './preset.ts'
 import { agentPresetProjectionDefinition } from './session.ts'
 export type * from './types.ts'
 export type {
-  AgentPresetComposition, AgentPresetCompositionRow, CompositionRowEnablement,
+  AgentPresetComposition, AgentPresetCompositionRow, AgentPresetPersona,
+  AgentPresetSkillSummary, CompositionRowEnablement,
 } from './composition-inventory.ts'
 
 /** Settings namespace carrying the user's preset-picker preference and chosen default. */
@@ -338,23 +339,27 @@ export class AgentPresets extends TypertRemoteService {
         ...preset.name === undefined ? {} : { name: preset.name },
         isDefault: preset.id === defaultId,
       }
+      // Profile text (persona, bundled skills) is read from the composition
+      // file on every branch: it is display metadata, not the live tool set,
+      // and degrades to empty when the file is unreadable.
+      const profile = await readPresetProfile(preset.path)
       // Before the broken verdict: a mounted preset whose file was since
       // deleted or corrupted still runs its standing composition. Newest
       // generation last: mount records keep insertion order, and a
       // superseded generation's record precedes its replacement's.
       const mount = livePresetMounts(rootFiber).findLast(candidate => candidate.presetId === preset.id)
       if (mount !== undefined) {
-        found.push({ ...identity, rows: mountedCompositionRows(mount.tree) })
+        found.push({ ...identity, ...profile, rows: mountedCompositionRows(mount.tree) })
         continue
       }
       if (preset.broken !== undefined) {
-        found.push({ ...identity, broken: preset.broken, rows: [] })
+        found.push({ ...identity, broken: preset.broken, skills: [], rows: [] })
         continue
       }
       const read = await fileComposition(preset.path, evaluateExpression)
       found.push('broken' in read
-        ? { ...identity, broken: read.broken, rows: [] }
-        : { ...identity, rows: read.rows })
+        ? { ...identity, broken: read.broken, skills: [], rows: [] }
+        : { ...identity, ...read })
     }
     return found
   }

@@ -52,7 +52,7 @@ describe('web e2e: digital employee directory', () => {
     const card = main.locator('article')
     await expect.poll(() => card.count()).toBe(1)
     await card.getByRole('button', { name: 'View details' }).click()
-    await main.getByText('@deepseek-ai/dsh-persona', { exact: true }).waitFor()
+    await main.getByText('No bundled skills.', { exact: true }).waitFor()
     expect(scaffold.ctx.agents.list()).toHaveLength(before)
     await main.getByRole('button', { name: 'Start conversation' }).click()
     await expect.poll(() => scaffold.ctx.agents.list().length).toBe(before + 1)

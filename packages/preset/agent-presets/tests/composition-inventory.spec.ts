@@ -124,6 +124,7 @@ describe('fileComposition', () => {
         { entryId: 'maybe', moduleName: 'pkg-maybe', enabled: 'conditional' },
         { entryId: 'certainly-off', moduleName: 'pkg-certainly-off', enabled: false },
       ],
+      skills: [],
     })
   })
 
@@ -144,6 +145,48 @@ describe('fileComposition', () => {
       rows: [
         { entryId: 'off', moduleName: 'pkg-off', enabled: false, condition: '1 === 1' },
         { entryId: 'on', moduleName: 'pkg-on', enabled: true, condition: '1 === 2' },
+      ],
+      skills: [],
+    })
+  })
+
+  it('extracts the persona prefix and bundled skills for the readable profile', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-composition-profile-'))
+    roots.push(dir)
+    const path = join(dir, COMPOSITION_FILE)
+    await writeFile(path, [
+      '- id: persona',
+      '  name: \'@deepseek-ai/dsh-persona\'',
+      '  config:',
+      '    prefix: |-',
+      '      You are a tester.',
+      '      Follow the rules.',
+      '- id: prompt',
+      '  name: \'@deepseek-ai/dsh-system-prompt\'',
+    ].join('\n'))
+    await mkdir(join(dir, 'skills', 'welcome'), { recursive: true })
+    await writeFile(join(dir, 'skills', 'welcome', 'SKILL.md'), [
+      '---',
+      'name: welcome',
+      'description: 欢迎技能',
+      '---',
+      '# Welcome',
+    ].join('\n'))
+    // A skill missing a required frontmatter field is skipped rather than failing the read.
+    await mkdir(join(dir, 'skills', 'bare'), { recursive: true })
+    await writeFile(join(dir, 'skills', 'bare', 'SKILL.md'), [
+      '---',
+      'name: bare',
+      '---',
+      '# Bare',
+    ].join('\n'))
+
+    expect(await fileComposition(path, refuseExpression)).toEqual({
+      persona: { prefix: 'You are a tester.\nFollow the rules.' },
+      skills: [{ name: 'welcome', description: '欢迎技能' }],
+      rows: [
+        { entryId: 'persona', moduleName: '@deepseek-ai/dsh-persona', enabled: true },
+        { entryId: 'prompt', moduleName: '@deepseek-ai/dsh-system-prompt', enabled: true },
       ],
     })
   })
@@ -232,12 +275,14 @@ describe('AgentPresets.compositionInventory', () => {
         id: 'minimal',
         trust: 'system',
         isDefault: true,
+        skills: [],
         rows: [{ entryId: 'beta', moduleName: '../../plugins/contribute.js', enabled: true }],
       },
       {
         id: 'standard',
         trust: 'system',
         isDefault: false,
+        skills: [],
         rows: [
           { entryId: 'alpha', moduleName: '../../plugins/contribute.js', enabled: true },
           { entryId: 'alpha-extra', moduleName: '../../plugins/contribute.js', enabled: false },
@@ -248,6 +293,7 @@ describe('AgentPresets.compositionInventory', () => {
         trust: 'user',
         name: '我的模式',
         isDefault: false,
+        skills: [],
         rows: [
           { entryId: 'prompt', moduleName: '@deepseek-ai/dsh-system-prompt', enabled: true },
           // The platform-gate shape: the service evaluates it with the

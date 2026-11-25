@@ -11,7 +11,11 @@
 .card p { flex: 1; }
 .badges, .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .detail { margin-top: 24px; }
-.plugins { list-style: none; padding: 0; }
-.plugins li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
-.plugins code { overflow-wrap: anywhere; }
+.detail h3 { margin: 20px 0 8px; font-size: 15px; }
+.persona { white-space: pre-line; }
+.skills { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.skills li { padding: 10px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
+.skills li:last-child { border-bottom: 0; }
+.skills h4 { margin: 0 0 4px; font-size: 14px; }
+.skills p { margin: 0; }
 @media (max-width: 700px) { .page { padding: 16px; } .header { align-items: flex-start; } }

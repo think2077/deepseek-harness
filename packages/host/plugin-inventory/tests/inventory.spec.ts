@@ -99,12 +99,13 @@ describe('PluginInventoryGateway', () => {
           trust: 'system',
           name: '标准模式',
           isDefault: true,
+          skills: [],
           rows: [
             { entryId: 'alpha', moduleName: 'pkg-alpha', enabled: true, fiberState: FiberState.ACTIVE },
             { entryId: null, moduleName: 'pkg-file', enabled: 'conditional', condition: 'x' },
           ],
         },
-        { id: 'damaged', trust: 'user', isDefault: false, broken: 'the composition file is missing', rows: [] },
+        { id: 'damaged', trust: 'user', isDefault: false, broken: 'the composition file is missing', skills: [], rows: [] },
       ],
     } as Partial<AgentPresets> as never)
 
@@ -115,12 +116,13 @@ describe('PluginInventoryGateway', () => {
         trust: 'system',
         name: '标准模式',
         isDefault: true,
+        skills: [],
         rows: [
           { entryId: 'alpha', moduleName: 'pkg-alpha', enabled: true, fiberPhase: 'active' },
           { entryId: null, moduleName: 'pkg-file', enabled: 'conditional', condition: 'x', fiberPhase: null },
         ],
       },
-      { id: 'damaged', trust: 'user', isDefault: false, broken: 'the composition file is missing', rows: [] },
+      { id: 'damaged', trust: 'user', isDefault: false, broken: 'the composition file is missing', skills: [], rows: [] },
     ])
   })
 })

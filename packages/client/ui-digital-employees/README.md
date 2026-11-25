@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Browse digital employees, search their names and descriptions, and inspect their configured plugins. Start a fresh conversation with the selected employee in an existing workspace. The directory reads agent presets without creating a second employee registry. Browsing does not mount agents or submit prompts.
+Browse digital employees, search their names and descriptions, and inspect their persona and bundled skills. Start a fresh conversation with the selected employee in an existing workspace. The directory reads agent presets without creating a second employee registry. Browsing does not mount agents or submit prompts.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Browse digital employees, search their names and descriptions, and inspect their
 
 The Web composition mounts this plugin as a separate row. It contributes Digital employees between My workbench and My reviews. There are no configuration fields. It requires the layout, slots, locale, sessions, workspace navigation, agent-preset Remote, and plugin-inventory Remote services.
 
-Cards display preset names, descriptions, source, default status, and configuration errors. View details shows plugin module names and enablement from the Host inventory; it does not expose plugin configuration values. Refresh reads the current roster and composition again.
+Cards display preset names, descriptions, source, default status, and configuration errors. View details shows the employee's persona prose and bundled skill names with descriptions; it does not expose plugin module names or configuration values. Refresh reads the current roster and details again.
 
 Start conversation creates a fresh session in the current conversation’s workspace. Without a current project, users choose an existing workspace. Preset selection completes before navigation; no prompt is submitted. A later navigation or plugin unload prevents a pending launch from opening its session. Failures remain visible and can be retried.
 

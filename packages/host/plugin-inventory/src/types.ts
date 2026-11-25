@@ -43,6 +43,20 @@ export interface AgentPresetPluginRow {
   readonly fiberPhase: PluginFiberPhase
 }
 
+/** Human-readable persona prose extracted from a preset's persona row. */
+export interface AgentPresetPersonaSummary {
+  /** Persona prefix: the role definition and working rules the preset states. */
+  readonly prefix: string
+}
+
+/** One skill bundled with the preset, summarized from its `SKILL.md` frontmatter. */
+export interface AgentPresetSkillSummary {
+  /** Skill name from the frontmatter `name` field. */
+  readonly name: string
+  /** Skill description from the frontmatter `description` field. */
+  readonly description: string
+}
+
 /** One agent preset's identity and flattened composition in the inventory. */
 export interface AgentPresetPluginGroup {
   /** Stable preset id. */
@@ -57,6 +71,10 @@ export interface AgentPresetPluginGroup {
   readonly broken?: string
   /** Plugin rows in composition order; empty when the preset is broken. */
   readonly rows: readonly AgentPresetPluginRow[]
+  /** Human-readable persona extracted from the preset's persona row; absent when none declares one. */
+  readonly persona?: AgentPresetPersonaSummary
+  /** Skills bundled in the preset directory, summarized for display; empty when it ships none. */
+  readonly skills: readonly AgentPresetSkillSummary[]
 }
 
 /** Point-in-time inventory returned by the plugin inventory Remote. */

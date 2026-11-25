@@ -1,4 +1,4 @@
-/** Browse preset identities and composition rows without mounting an agent. */
+/** Browse preset identities, persona, and bundled skills without mounting an agent. */
 import { useEffect, useRef, useState } from 'react'
 import { presetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -77,12 +77,18 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
       <div className={css.header}><h2>{detail.name}</h2><Button variant="ghost" onClick={() => { setSelected(undefined) }}>{t('close')}</Button></div>
       <p>{detail.description ?? t('noDescription')}</p><code>{detail.id}</code>
       {detail.broken !== undefined && <p role="alert">{detail.broken}</p>}
-      <h3>{t('capabilities')}</h3><p>{t('capabilityHint')}</p>
       {inventoryError ? <p role="alert">{t('inventoryError')}</p> : inventory === undefined ? <p role="status">{t('loading')}</p>
         : composition === undefined ? <p role="alert">{t('inventoryError')}</p> : composition.broken !== undefined ? <p role="alert">{composition.broken}</p>
-          : composition.rows.length === 0 ? <p>{t('noCapabilities')}</p> : <ul className={css.plugins}>{composition.rows.map((row, index) => <li key={index}>
-            <code>{row.moduleName}</code><Tag>{t(row.enabled === true ? 'enabled' : row.enabled === false ? 'disabled' : 'conditional')}</Tag>
-          </li>)}</ul>}
+          : <>
+            {composition.persona?.prefix !== undefined && <>
+              <h3>{t('persona')}</h3>
+              <p className={css.persona}>{composition.persona.prefix}</p>
+            </>}
+            <h3>{t('skills')}</h3>
+            {composition.skills.length === 0 ? <p>{t('noSkills')}</p> : <ul className={css.skills}>{composition.skills.map((skill, index) => <li key={index}>
+              <h4>{skill.name}</h4><p>{skill.description}</p>
+            </li>)}</ul>}
+          </>}
     </section>}
     {busy && <p role="status">{t('starting')}</p>}{error !== undefined && <p role="alert">{error}</p>}
     {pending !== undefined && <section className={css.detail} role="dialog" aria-label={t('chooseWorkspace')}>

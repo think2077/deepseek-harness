@@ -10,7 +10,9 @@
  * @module @deepseek-ai/dsh-agent-presets/composition-inventory
  */
 
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { load } from 'js-yaml'
 import type { FiberState } from '@deepseek-ai/cordis'
 import { isJsExpr, type EntryTree } from '@deepseek-ai/cordis-plugin-loader'
@@ -49,6 +51,20 @@ export interface AgentPresetCompositionRow {
   readonly fiberState?: FiberState
 }
 
+/** The persona prose a preset publishes, for a human-readable summary. */
+export interface AgentPresetPersona {
+  /** Persona prefix: the role definition and working rules this preset states. */
+  readonly prefix: string
+}
+
+/** One skill bundled with the preset, summarized from its `SKILL.md` frontmatter. */
+export interface AgentPresetSkillSummary {
+  /** Skill name from the frontmatter `name` field. */
+  readonly name: string
+  /** Skill description from the frontmatter `description` field. */
+  readonly description: string
+}
+
 /** One preset's roster identity beside its composition rows. */
 export interface AgentPresetComposition {
   /** Stable preset id. */
@@ -61,8 +77,12 @@ export interface AgentPresetComposition {
   readonly isDefault: boolean
   /** Why this preset's rows cannot be read; absent when {@link rows} answers. */
   readonly broken?: string
-  /** Composition rows in composition order; empty when the preset is broken. */
+  /** Plugin rows in composition order; empty when the preset is broken. */
   readonly rows: readonly AgentPresetCompositionRow[]
+  /** Human-readable persona extracted from the preset's persona row; absent when none declares one. */
+  readonly persona?: AgentPresetPersona
+  /** Skills bundled in the preset directory, summarized for display; empty when it ships none. */
+  readonly skills: readonly AgentPresetSkillSummary[]
 }
 
 /**
@@ -116,6 +136,162 @@ interface RawRow {
   readonly disabled?: unknown
 }
 
+/** Loader module that contributes a preset's persona section. */
+const PERSONA_MODULE = '@deepseek-ai/dsh-persona'
+
+/** Directory holding a preset's bundled skills, beside its composition file. */
+const PRESET_SKILLS_DIR = 'skills'
+
+/** Skill bundle file a directory skill carries at its root. */
+const SKILL_FILE = 'SKILL.md'
+
+/**
+ * Read the persona prefix out of a parsed row list, recursing through groups.
+ * Only the prefix is surfaced: the suffix holds runtime context variables the
+ * host fills in, so it reads as a template rather than role prose off the file.
+ * @param rows - the parsed composition document, shape-checked by the caller.
+ * @returns the trimmed persona prefix, or undefined when no row declares one.
+ */
+function findPersonaPrefix(rows: readonly unknown[]): string | undefined {
+  for (const value of rows) {
+    const row = value as RawRow
+    if (row.group === true) {
+      const nested = findPersonaPrefix(asRowList(row.config))
+      if (nested !== undefined) return nested
+      continue
+    }
+    if (row.name !== PERSONA_MODULE) continue
+    const config = row.config as Record<string, unknown> | undefined
+    const prefix = typeof config?.prefix === 'string' ? config.prefix.trim() : ''
+    if (prefix !== '') return prefix
+  }
+  return undefined
+}
+
+/** Narrow an unknown group config to a row list, tolerating a malformed group. */
+function asRowList(config: unknown): readonly unknown[] {
+  return Array.isArray(config) ? config : []
+}
+
+/** One non-empty trimmed string field from parsed frontmatter. */
+function frontmatterString(data: Record<string, unknown>, key: string): string | undefined {
+  const value = data[key]
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined
+}
+
+/**
+ * Parse the YAML frontmatter at the top of a Markdown skill file.
+ * Mirrors the skill-filesystem provider's own shape: a `---` fenced block whose
+ * body parses to a mapping. Returns undefined when the file carries no valid block.
+ * @param raw - the skill file's full text.
+ * @returns the frontmatter mapping, or undefined.
+ */
+function parseMarkdownFrontmatter(raw: string): Record<string, unknown> | undefined {
+  const firstLineEnd = raw.indexOf('\n')
+  if (firstLineEnd < 0) return undefined
+  if (raw.slice(0, firstLineEnd).replace(/\r$/, '') !== '---') return undefined
+  const closing = findClosingFrontmatter(raw, firstLineEnd + 1)
+  if (closing === undefined) return undefined
+  let parsed: unknown
+  try {
+    parsed = load(raw.slice(firstLineEnd + 1, closing))
+  } catch {
+    return undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+  return parsed as Record<string, unknown>
+}
+
+/** Locate the `---` line closing the frontmatter, returning its slice start. */
+function findClosingFrontmatter(raw: string, start: number): number | undefined {
+  let lineStart = start
+  while (lineStart <= raw.length) {
+    const nextNewline = raw.indexOf('\n', lineStart)
+    const lineEnd = nextNewline < 0 ? raw.length : nextNewline
+    if (raw.slice(lineStart, lineEnd).replace(/\r$/, '') === '---') return lineStart
+    if (nextNewline < 0) return undefined
+    lineStart = nextNewline + 1
+  }
+  return undefined
+}
+
+/**
+ * Read one skill file's frontmatter into a summary, or undefined when the file
+ * is missing, unparsable, or lacks a required `name`/`description`.
+ * @param path - absolute path of the skill Markdown file.
+ * @returns the summarized skill, or undefined to skip this entry.
+ */
+async function readSkillSummary(path: string): Promise<AgentPresetSkillSummary | undefined> {
+  let raw: string
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch {
+    return undefined
+  }
+  const data = parseMarkdownFrontmatter(raw)
+  if (data === undefined) return undefined
+  const name = frontmatterString(data, 'name')
+  const description = frontmatterString(data, 'description')
+  if (name === undefined || description === undefined) return undefined
+  return { name, description }
+}
+
+/**
+ * List a preset's bundled skills from its `skills/` directory. Directory
+ * bundles carry a `SKILL.md`; a flat `*.md` file is accepted too, matching the
+ * filesystem skill provider. A missing or unreadable directory answers an
+ * empty list rather than failing the whole profile read.
+ * @param presetDir - the preset directory holding the composition file.
+ * @returns summarized skills in stable directory order.
+ */
+async function readPresetSkills(presetDir: string): Promise<AgentPresetSkillSummary[]> {
+  const root = join(presetDir, PRESET_SKILLS_DIR)
+  let entries: Dirent[]
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const skills: AgentPresetSkillSummary[] = []
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const locator = entry.isDirectory()
+      ? join(root, entry.name, SKILL_FILE)
+      : entry.isFile() && entry.name.endsWith('.md')
+        ? join(root, entry.name)
+        : undefined
+    if (locator === undefined) continue
+    const summary = await readSkillSummary(locator)
+    if (summary !== undefined) skills.push(summary)
+  }
+  return skills
+}
+
+/**
+ * Best-effort human-readable profile for one preset: its persona prose and
+ * bundled skills. Unlike {@link fileComposition} this never reports broken —
+ * a profile read failing degrades to an empty persona/skills rather than
+ * failing the inventory, because display metadata is not a mount capability.
+ * @param compositionPath - absolute path of the preset's composition file.
+ * @returns the resolved persona (when declared) and bundled skills.
+ */
+export async function readPresetProfile(
+  compositionPath: string,
+): Promise<{ persona?: AgentPresetPersona; skills: readonly AgentPresetSkillSummary[] }> {
+  let rows: unknown
+  try {
+    rows = load(await readFile(compositionPath, 'utf8'), { schema: entryListSchema })
+  } catch {
+    return { skills: [] }
+  }
+  const skills = await readPresetSkills(dirname(compositionPath))
+  if (!Array.isArray(rows)) return { skills }
+  const prefix = findPersonaPrefix(rows)
+  return {
+    ...prefix === undefined ? {} : { persona: { prefix } },
+    skills,
+  }
+}
+
 /**
  * Flatten one parsed row list into plugin rows. Group rows are structural —
  * the Loader reports a group entry as always enabled and lets children
@@ -154,15 +330,21 @@ function flattenRows(
  * reported are the rows a mount would start from. A file that stopped reading
  * as a composition — discovery judged the preset healthy moments earlier, so
  * only an edit racing this read gets here — answers as broken with the raced
- * reason rather than dropping the rows silently.
+ * reason rather than dropping the rows silently. The returned profile also
+ * carries the preset's persona prose and bundled skills for the readable
+ * detail view.
  * @param path - absolute path of the composition file.
  * @param evaluateExpression - the Loader-context evaluator for `!!js` nodes.
- * @returns flattened rows in composition order, or why they cannot be read.
+ * @returns flattened rows in composition order with the readable profile, or why they cannot be read.
  */
 export async function fileComposition(
   path: string,
   evaluateExpression: DisabledExpressionEvaluator,
-): Promise<{ rows: AgentPresetCompositionRow[] } | { broken: string }> {
+): Promise<{
+  rows: AgentPresetCompositionRow[]
+  persona?: AgentPresetPersona
+  skills: readonly AgentPresetSkillSummary[]
+} | { broken: string }> {
   let rows: unknown
   try {
     rows = load(await readFile(path, 'utf8'), { schema: entryListSchema })
@@ -172,9 +354,16 @@ export async function fileComposition(
   }
   const problem = entryListProblem(rows)
   if (problem !== undefined) return { broken: problem }
+  const rowList = rows as readonly unknown[]
   const found: AgentPresetCompositionRow[] = []
-  flattenRows(rows as readonly unknown[], false, evaluateExpression, found)
-  return { rows: found }
+  flattenRows(rowList, false, evaluateExpression, found)
+  const prefix = findPersonaPrefix(rowList)
+  const skills = await readPresetSkills(dirname(path))
+  return {
+    rows: found,
+    ...prefix === undefined ? {} : { persona: { prefix } },
+    skills,
+  }
 }
 
 /**
