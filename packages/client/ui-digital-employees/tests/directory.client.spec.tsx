@@ -9,7 +9,10 @@ import type {} from '../src/client/index.ts'
 afterEach(cleanup)
 const presets = [
   { id: 'sales', name: 'Sales assistant', description: 'Customer research', trust: 'user', isDefault: true },
-  { id: 'broken', name: 'Broken assistant', trust: 'system', isDefault: false, broken: 'Invalid composition' },
+  { id: 'novel', name: 'Novel writer', description: 'Long-form fiction', trust: 'user', isDefault: false },
+  { id: 'broken', name: 'Broken assistant', trust: 'user', isDefault: false, broken: 'Invalid composition' },
+  { id: 'standard', name: 'Standard mode', description: 'Built in', trust: 'system', isDefault: false },
+  { id: 'cordis', name: 'Creator mode', description: 'Built in', trust: 'system', isDefault: false },
 ] as const
 const workspace = { workspaceId: 'project-a', title: 'Project A', sessionIds: ['existing'] }
 function mount(options: { current?: string; empty?: boolean; noWorkspace?: boolean; fail?: boolean; start?: () => Promise<void> } = {}) {
@@ -31,11 +34,14 @@ function mount(options: { current?: string; empty?: boolean; noWorkspace?: boole
   return { startAssistant, readRoster }
 }
 
-it('browses and searches the roster, and inspects plugin enablement without starting a session', async () => {
+it('lists only authored employees, searches them, and inspects details without starting a session', async () => {
   const app = mount()
   await screen.findByText('Sales assistant')
-  expect((screen.getAllByRole('button', { name: en.start })[1] as HTMLButtonElement).disabled).toBe(true)
-  fireEvent.click(screen.getAllByRole('button', { name: en.details })[0]!)
+  expect(screen.queryByText('Standard mode')).toBeNull()
+  expect(screen.queryByText('Creator mode')).toBeNull()
+  expect((screen.getAllByRole('button', { name: en.start })[0] as HTMLButtonElement).disabled).toBe(false)
+  expect((screen.getAllByRole('button', { name: en.start })[2] as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.click(screen.getByRole('button', { name: `${en.details}: Sales assistant` }))
   expect(await screen.findByText(en.persona)).toBeTruthy()
   expect(screen.getByText(/You are a sales assistant/)).toBeTruthy()
   expect(screen.getByText(en.skills)).toBeTruthy()
@@ -43,11 +49,17 @@ it('browses and searches the roster, and inspects plugin enablement without star
   expect(screen.getByText('Research customer background.')).toBeTruthy()
   expect(app.startAssistant).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: en.close }))
-  fireEvent.change(screen.getByRole('textbox', { name: en.search }), { target: { value: 'customer' } })
-  expect(screen.queryByText('Broken assistant')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: en.retry }))
-  await waitFor(() => { expect(app.readRoster).toHaveBeenCalledTimes(2) })
+  fireEvent.change(screen.getByRole('textbox', { name: en.search }), { target: { value: 'fiction' } })
+  expect(screen.queryByText('Sales assistant')).toBeNull()
+  expect(screen.getByText('Novel writer')).toBeTruthy()
   expect(zh.nav).toBe('数字员工')
+})
+
+it('starts the authoring entry inside Creator mode', async () => {
+  const app = mount({ current: 'existing' })
+  await screen.findByText('Sales assistant')
+  fireEvent.click(screen.getByRole('button', { name: en.create }))
+  await waitFor(() => { expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'cordis') })
 })
 
 it('creates a conversation in the current project', async () => {
@@ -79,5 +91,5 @@ it('explains missing workspaces, empty rosters and load failures', async () => {
   expect(await screen.findByText(en.empty)).toBeTruthy()
   cleanup()
   mount({ fail: true })
-  expect(await screen.findByRole('alert')).toHaveProperty('textContent', en.error)
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', `${en.error} ${en.retry}`)
 })

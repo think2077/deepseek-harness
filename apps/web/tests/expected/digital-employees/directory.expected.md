@@ -1,29 +1,8 @@
 - main:
   - heading "Digital employees" [level=1]
-  - paragraph: Choose an assistant, explore its capabilities, and start a conversation in your workspace.
-  - button "Refresh"
+  - paragraph: Reusable work capabilities for the organization.
+  - button "Create / edit digital employee":
+    - img
+    - text: Create / edit digital employee
   - textbox "Search digital employees"
-  - article:
-    - text: Built-in Default
-    - heading "Standard mode" [level=2]
-    - paragraph: Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.
-    - button "View details"
-    - button "Start conversation"
-  - article:
-    - text: Built-in
-    - heading "PTC mode" [level=2]
-    - paragraph: Full coding agent without the workflow tool; other tools are exposed through the PTC mode SDK so the model can combine multi-step operations in one TypeScript program.
-    - button "View details"
-    - button "Start conversation"
-  - article:
-    - text: Built-in
-    - heading "Minimal mode" [level=2]
-    - paragraph: Single-tool coding agent with a persistent shell.
-    - button "View details"
-    - button "Start conversation"
-  - article:
-    - text: Built-in
-    - heading "Creator mode" [level=2]
-    - paragraph: Built for creating custom agent presets, with all Standard mode capabilities plus runtime inspection, plugin experiments, and preset-authoring guidance.
-    - button "View details"
-    - button "Start conversation"
+  - paragraph: No digital employees have been created yet.

@@ -3,14 +3,19 @@
 .page h1 { margin: 0; font-size: 26px; }
 .page h2 { margin: 12px 0; font-size: 18px; }
 .page p { color: var(--dsw-alias-label-secondary); line-height: 1.7; }
-.search { width: min(100%, 460px); }
+.search { width: min(100%, 460px); margin-top: 20px; }
 .search > span { width: 100%; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 24px; }
-.card, .detail { padding: 24px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); }
-.card { display: flex; flex-direction: column; }
-.card p { flex: 1; }
-.badges, .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.detail { margin-top: 24px; }
+.list { display: flex; flex-direction: column; margin-top: 16px; }
+.row { display: flex; align-items: center; gap: 16px; padding: 18px 4px; border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
+.row:last-child { border-bottom: 0; }
+.icon { display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
+.rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.name { align-self: flex-start; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); text-align: left; }
+.name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.rowMain p { margin: 0; font-size: 13px; }
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; }
+.rowAction { display: flex; flex: none; }
+.detail { margin-top: 24px; padding: 24px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); }
 .detail h3 { margin: 20px 0 8px; font-size: 15px; }
 .persona { white-space: pre-line; }
 .skills { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -18,4 +23,8 @@
 .skills li:last-child { border-bottom: 0; }
 .skills h4 { margin: 0 0 4px; font-size: 14px; }
 .skills p { margin: 0; }
+@media (max-width: 900px) {
+  .row { flex-wrap: wrap; }
+  .rowAction { margin-left: auto; }
+}
 @media (max-width: 700px) { .page { padding: 16px; } .header { align-items: flex-start; } }

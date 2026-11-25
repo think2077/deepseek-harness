@@ -31,14 +31,17 @@ describe('web e2e: digital employee directory', () => {
     await scaffold?.close()
   })
 
-  it('browses configured employees without creating agents, then starts the selected preset', async () => {
+  it('shows only authored employees and starts Creator mode from the create entry', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-digital-employees'))
     await expect.poll(() => scaffold.ctx.agents.list().length).toBeGreaterThan(0)
     const before = scaffold.ctx.agents.list().length
     const nav = page.getByRole('button', { name: 'Digital employees', exact: true })
     await nav.click()
     const main = page.locator('main').filter({ has: page.getByRole('heading', { name: 'Digital employees', exact: true }) })
-    await main.locator('article').first().waitFor()
+    // The shipped presets are deployment machinery: this deployment authored
+    // none of its own, so the directory lists nothing.
+    await main.getByText('No digital employees have been created yet.', { exact: true }).waitFor()
+    expect(await main.locator('article').count()).toBe(0)
     const navBox = await nav.boundingBox()
     const reviewBox = await page.getByRole('button', { name: 'My reviews', exact: true }).boundingBox()
     expect(navBox!.y).toBeLessThan(reviewBox!.y)
@@ -47,18 +50,11 @@ describe('web e2e: digital employee directory', () => {
     const artifactDir = fileURLToPath(new URL('../../../.artifacts/', import.meta.url))
     await mkdir(artifactDir, { recursive: true })
     await page.screenshot({ path: `${artifactDir}/digital-employees.png`, fullPage: true })
-    const search = main.getByRole('textbox', { name: 'Search digital employees' })
-    await search.fill('minimal')
-    const card = main.locator('article')
-    await expect.poll(() => card.count()).toBe(1)
-    await card.getByRole('button', { name: 'View details' }).click()
-    await main.getByText('No bundled skills.', { exact: true }).waitFor()
-    expect(scaffold.ctx.agents.list()).toHaveLength(before)
-    await main.getByRole('button', { name: 'Start conversation' }).click()
+    await main.getByRole('button', { name: 'Create / edit digital employee' }).click()
     await expect.poll(() => scaffold.ctx.agents.list().length).toBe(before + 1)
     const created = scaffold.ctx.agents.list().at(-1)
     expect(created).toBeDefined()
-    await expect.poll(async () => (await readPersistedEvents(scaffold, created!.session.id)).some(event => event.type === 'agent-preset/selected' && event.data.agentPreset === 'minimal')).toBe(true)
+    await expect.poll(async () => (await readPersistedEvents(scaffold, created!.session.id)).some(event => event.type === 'agent-preset/selected' && event.data.agentPreset === 'cordis')).toBe(true)
     expect((await readPersistedEvents(scaffold, created!.session.id)).some(event => event.type === 'user/message')).toBe(false)
     expect(tripwire.pageErrors).toEqual([])
   })
