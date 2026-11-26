@@ -32,6 +32,13 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 
 export { SANDBOX_MODES, setSandboxMode } from './session-mode.ts'
 
+/**
+ * 本部署代码级锁定的文件效应模式：写死为 `workspace-write`。
+ * 部署配置的 `mode`、会话的 `sandbox/mode` 覆盖、以及单次调用的显式授权
+ * （升级批准后的 `request.mode`）一律不再生效，执行层只会拿到这个值。
+ */
+const LOCKED_MODE: SandboxMode = 'workspace-write'
+
 /** Preserve execution-world spelling; enforcing providers resolve filesystem identity on their host. */
 function resolveWorkspaceRoot(path: string): string {
   if (!isAbsolute(path)) throw new Error('sandbox-policy: workspace root must be an absolute execution-world path')
@@ -69,7 +76,11 @@ declare module '@deepseek-ai/cordis' {
  * is any per-family knob: this is the one shared policy home.
  */
 export interface Config {
-  /** File-sandbox mode a session starts from (default: `read-only`). */
+  /**
+   * Accepted for compatibility but NOT effective: this deployment locks the
+   * mode to `workspace-write` in code. A different value only logs a load-time
+   * warning.
+   */
   mode?: SandboxMode
   /**
    * Absolute fallback root for agentless calls and sessions without a cwd (default:
@@ -82,7 +93,7 @@ export interface Config {
 export interface SandboxPolicyRequest {
   /** Calling session; its immutable cwd becomes the workspace boundary. */
   session?: Session
-  /** Explicit approved mode override, which outranks session policy. */
+  /** Explicit approved mode override — accepted but ignored under the locked mode. */
   mode?: SandboxMode
 }
 
@@ -124,10 +135,11 @@ export class SandboxPolicyService extends Service {
   readonly workspaceRoot: string
   constructor(ctx: Context, config: Config) {
     super(ctx, 'sandboxPolicy')
-    // schemastery (static Config) already filled `mode`; the cast records that
-    // runtime fact. `workspaceRoot` has NO schema default, so its fallback to
-    // the process cwd is real branching, resolved absolute either way.
-    this.defaultMode = config.mode as SandboxMode
+    // 模式写死在代码里：配置值仅做兼容读取，不参与解析。
+    this.defaultMode = LOCKED_MODE
+    if (config.mode !== undefined && config.mode !== LOCKED_MODE) {
+      ctx.logger.warn(`sandbox-policy: configured mode "${config.mode}" ignored; mode is locked to "${LOCKED_MODE}" in code`)
+    }
     this.workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot ?? process.cwd())
 
     ctx.sessionProjections.register({
@@ -135,7 +147,8 @@ export class SandboxPolicyService extends Service {
       stateVersion: 1,
       stateSchema: sandboxModeStateSchema,
       init: () => null,
-      apply: (state, event) => (event.type === 'sandbox/mode' ? event.data.mode : state),
+      // 锁定的模式不接受覆盖：任何来源写入的 sandbox/mode 都折叠成 null。
+      apply: () => null,
     })
 
     ctx.inject(['systemPrompt'], (scope: Context) => {
@@ -153,30 +166,32 @@ export class SandboxPolicyService extends Service {
   }
 
   /**
-   * Resolve the complete policy for one capability call. An approved explicit
-   * mode outranks the session's last `sandbox/mode` event, which outranks the
-   * deployment default. A session cwd is its workspace-write boundary; the
-   * configured root is the fallback for agentless calls and sessions without a
-   * cwd.
-   * @param request - optional session and approved mode override.
+   * Resolve the complete policy for one capability call. The mode is the code-level
+   * {@link LOCKED_MODE} — deployment config, session `sandbox/mode` events and
+   * approved per-call overrides are all ignored. A session cwd is its
+   * workspace-write boundary; the configured root is the fallback for agentless
+   * calls and sessions without a cwd.
+   * @param request - optional session and approved mode override (mode ignored).
    * @returns the fully resolved per-call mode and absolute workspace root.
    */
   resolve(request: SandboxPolicyRequest = {}): SandboxExecutionPolicy {
     const { session } = request
     return {
-      mode: request.mode ?? (session === undefined ? undefined : this.overrideOf(session)) ?? this.defaultMode,
+      mode: LOCKED_MODE,
       workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),
       ...session === undefined ? {} : { sessionId: session.id },
     }
   }
 
   /**
-   * Read the session override without applying the deployment default.
-   * @param session - session whose log supplies the override.
-   * @returns the last logged mode, or `undefined` without one.
+   * Read the session override without applying the deployment default. The
+   * mode is code-locked, so there is never a valid override.
+   * @param session - session whose log would supply the override.
+   * @returns always `undefined` under the locked mode.
    */
   overrideOf(session: Session): SandboxMode | undefined {
-    return this.ctx.sessionProjections.stateOf(session, 'sandboxMode') ?? undefined
+    void session
+    return undefined
   }
 }
 

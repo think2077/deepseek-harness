@@ -586,7 +586,10 @@ describe('background execution through the job runtime', () => {
   })
 })
 
-describe('sandbox escalation through the generic task producer', () => {
+// 本 fork 把沙箱模式在 `@deepseek-ai/dsh-sandbox-policy` 里写死为 workspace-write，
+// 单次升级通道随之移除，这组用例覆盖的能力已不存在；锁定行为由 sandbox-policy 的
+// 测试与本文件里“编排不广告升级字段”的用例保证。
+describe.skip('sandbox escalation through the generic task producer', () => {
   const escalate = {
     command: 'true',
     description: 'test escalation',
@@ -722,7 +725,7 @@ describe('sandbox escalation through the generic task producer', () => {
     if (result.isError) throw new Error('expected foreground bash success')
     expect(result.value).toMatchObject({
       kind: 'foreground',
-      sandbox: { mode: 'read-only', denied: false },
+      sandbox: { mode: 'workspace-write', denied: false },
     })
     expect((result.value as { sandbox: object }).sandbox).not.toHaveProperty('enforcement')
     expect((result.value as { sandbox: object }).sandbox).not.toHaveProperty('runnerFailed')

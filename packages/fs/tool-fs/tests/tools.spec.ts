@@ -766,7 +766,9 @@ describe('read caps are plugin config', () => {
   })
 })
 
-describe('sandbox escalation API (write/edit)', () => {
+// 本 fork 把沙箱模式在 `@deepseek-ai/dsh-sandbox-policy` 里写死为 workspace-write，
+// write/edit 的单次升级通道随之移除，这组用例覆盖的能力已不存在。
+describe.skip('sandbox escalation API (write/edit)', () => {
   /** A confining fake `ctx.fs`: reports a default mode, records each per-call policy, and can arm a sandbox denial. */
   class SandboxingFakeFs extends FakeFs {
     stamped: (SandboxExecutionPolicy | undefined)[] = []

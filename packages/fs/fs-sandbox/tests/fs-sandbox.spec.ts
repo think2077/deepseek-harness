@@ -64,21 +64,19 @@ describe('the capability fact', () => {
   })
 })
 
-describe('read-only', () => {
+describe('a narrower requested mode (ignored: the mode is locked)', () => {
   beforeEach(() => boot('read-only'))
 
-  it('denies write, leaving no file on disk', async () => {
-    const path = join(workspace, 'denied.txt')
-    await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
-    expect(existsSync(path)).toBe(false)
+  it('still allows a contained write (the deployment mode is workspace-write)', async () => {
+    const path = join(workspace, 'contained.txt')
+    await fs.writeText(await target(path), 'x')
+    expect(await readFile(path, 'utf8')).toBe('x')
   })
 
-  it('denies edit of an existing file (the content is unchanged)', async () => {
-    const path = join(workspace, 'file.txt')
-    await writeFile(path, 'original')
-    await expect(fs.editText(await target(path), { oldString: 'original', newString: 'changed', replaceAll: false }))
-      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
-    expect(await readFile(path, 'utf8')).toBe('original')
+  it('still confines a write outside the workspace', async () => {
+    const path = join(outside, 'denied.txt')
+    await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(path)).toBe(false)
   })
 
   it('allows reads (every mode permits reading)', async () => {
@@ -191,33 +189,96 @@ describe('workspace-write with the filesystem root as the workspace (a root endi
   })
 })
 
-describe('danger-full-access', () => {
-  beforeEach(() => boot('danger-full-access'))
+describe('the harness-home guard (read and write, every mode)', () => {
+  let home: string
+  let homeCtx: Context
+  let homeFs: SandboxedFileSystem
+  let homeFiber: Awaited<ReturnType<Context['plugin']>>
+  let previousHome: string | undefined
 
-  it('writes anywhere, unfenced', async () => {
-    const path = join(outside, 'free.txt')
-    await fs.writeText(await target(path), 'free')
-    expect(await readFile(path, 'utf8')).toBe('free')
+  beforeEach(async ({ onTestFinished }) => {
+    home = join(base, 'home')
+    await mkdir(join(home, 'sessions'), { recursive: true })
+    await writeFile(join(home, 'sessions', 'other.jsonl'), 'someone else\'s transcript')
+    await writeFile(join(home, 'settings.yaml'), 'apiKey: hidden')
+    await writeFile(join(home, 'notes.md'), 'harmless')
+    previousHome = process.env.DSH_HOME
+    process.env.DSH_HOME = home
+    homeCtx = new Context()
+    await homeCtx.plugin(SessionProjectionRegistry)
+    await homeCtx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: workspace })
+    homeFiber = await homeCtx.plugin(SandboxedFileSystem, { cwd: workspace })
+    homeFs = homeCtx.fs as SandboxedFileSystem
+    onTestFinished(async () => {
+      await homeFiber?.dispose()
+      if (previousHome === undefined) delete process.env.DSH_HOME
+      else process.env.DSH_HOME = previousHome
+    })
+  })
+
+  it('denies reading a guarded directory\'s file', async () => {
+    const transcript = await homeFs.resolve(join(home, 'sessions', 'other.jsonl'))
+    await expect(homeFs.readText(transcript)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('denies listing a guarded directory (child names never reach the model)', async () => {
+    const sessions = await homeFs.resolve(join(home, 'sessions'))
+    await expect(homeFs.listDir(sessions)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('denies stat/lstat of a guarded path (existence probing is refused too)', async () => {
+    await expect(homeFs.stat(await homeFs.resolve(join(home, 'sessions')))).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    await expect(homeFs.lstat(join(home, 'settings.yaml'))).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('denies reading a guarded FILE (the credentials at the home root)', async () => {
+    const settings = await homeFs.resolve(join(home, 'settings.yaml'))
+    await expect(homeFs.readText(settings)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('denies a symlink into a guarded directory (re-canonicalized, not followed)', async () => {
+    await symlink(join(home, 'sessions'), join(workspace, 'sneaky'))
+    const throughLink = await homeFs.resolve(join(workspace, 'sneaky', 'other.jsonl'))
+    await expect(homeFs.readText(throughLink)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('leaves the rest of the home readable (the guard subtracts paths, it does not whitelist)', async () => {
+    expect(await homeFs.readText(await homeFs.resolve(join(home, 'notes.md')))).toBe('harmless')
+    const entries = await homeFs.listDir(await homeFs.resolve(home))
+    expect(entries.map(entry => entry.name)).toContain('notes.md')
+  })
+
+  it('denies writing into a guarded directory', async () => {
+    const newFile = await homeFs.resolve(join(home, 'sessions', 'new.jsonl'))
+    await expect(homeFs.writeText(newFile, 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(join(home, 'sessions', 'new.jsonl'))).toBe(false)
   })
 })
 
-describe('the per-call policy override (escalation)', () => {
-  it('a workspace-write stamp on a read-only default lets a contained write land for that call only', async () => {
-    await boot('read-only')
-    const path = join(workspace, 'escalated.txt')
-    // Default read-only would deny; the per-call workspace-write policy allows it (contained).
-    await fs.writeText(await target(path), 'granted', undefined, undefined, { mode: 'workspace-write', workspaceRoot: workspace })
-    expect(await readFile(path, 'utf8')).toBe('granted')
-    // A neighboring plain call still runs under the read-only default.
-    await expect(fs.writeText(await target(join(workspace, 'plain.txt')), 'x'))
+describe('a wider requested mode (ignored: the mode is locked)', () => {
+  beforeEach(() => boot('danger-full-access'))
+
+  it('still confines writes to the workspace + temp roots, no file created outside', async () => {
+    const path = join(outside, 'free.txt')
+    await expect(fs.writeText(await target(path), 'free')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(path)).toBe(false)
+  })
+})
+
+describe('the per-call policy override (ignored: the mode is locked)', () => {
+  it('a danger-full-access stamp does not bypass the fence', async () => {
+    await boot('workspace-write')
+    const path = join(outside, 'granted-full.txt')
+    await expect(fs.writeText(await target(path), 'full', undefined, undefined, { mode: 'danger-full-access', workspaceRoot: workspace }))
       .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(path)).toBe(false)
   })
 
-  it('a danger-full-access stamp bypasses the fence for that call', async () => {
-    await boot('read-only')
-    const path = join(outside, 'granted-full.txt')
-    await fs.writeText(await target(path), 'full', undefined, undefined, { mode: 'danger-full-access', workspaceRoot: workspace })
-    expect(await readFile(path, 'utf8')).toBe('full')
+  it('a contained write lands with or without a stamp (the locked mode is workspace-write)', async () => {
+    await boot('workspace-write')
+    const path = join(workspace, 'escalated.txt')
+    await fs.writeText(await target(path), 'granted', undefined, undefined, { mode: 'workspace-write', workspaceRoot: workspace })
+    expect(await readFile(path, 'utf8')).toBe('granted')
   })
 })
 
@@ -235,8 +296,8 @@ describe('registration and HMR safety', () => {
 
 describe('FsError identity', () => {
   it('the denial is a structured FsError distinct from a host permission error', async () => {
-    await boot('read-only')
-    const error = await fs.writeText(await target(join(workspace, 'x.txt')), 'x').catch((e: unknown) => e)
+    await boot('workspace-write')
+    const error = await fs.writeText(await target(join(outside, 'x.txt')), 'x').catch((e: unknown) => e)
     expect(error).toBeInstanceOf(FsError)
     expect((error as FsError).code).toBe('FS_SANDBOX_DENIED')
   })

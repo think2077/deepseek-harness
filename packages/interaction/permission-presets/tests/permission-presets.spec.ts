@@ -108,28 +108,22 @@ describe('PermissionPresetService', () => {
       .toThrow('permission: permissions session projection is not registered')
   })
 
-  it('advertises the preset table in declaration order and resolves bundles', async () => {
+  it('offers only presets matching the locked sandbox mode and resolves bundles', async () => {
     const ctx = await mounted()
-    expect(ctx.permissionPresets.names).toEqual(['workspace-write', 'danger-full-access'])
-    expect(ctx.permissionPresets.resolve('danger-full-access')).toMatchObject({ sandbox: 'danger-full-access', approval: 'never' })
+    // 模式写死为 workspace-write：更宽的预设不进可选列表。
+    expect(ctx.permissionPresets.names).toEqual(['workspace-write'])
+    expect(ctx.permissionPresets.resolve('workspace-write')).toMatchObject({ sandbox: 'workspace-write', approval: 'ask' })
     expect(() => ctx.permissionPresets.resolve('plan')).toThrow(/unknown preset "plan"/)
   })
 
-  it('publishes an effect-scoped current-session preset and removes it on unload', async () => {
+  it('never offers Auto while the sandbox mode is locked', async () => {
     const ctx = await mounted()
     const fiber = await mountAuto(ctx)
-    expect(ctx.permissionPresets.names).toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
-    expect(ctx.permissionPresets.resolve(AUTO_PRESET)).toEqual({
-      sandbox: 'danger-full-access', approval: 'never',
-    })
-    expect(ctx.permissionPresets.optionOf(AUTO_PRESET)).toEqual({
-      value: AUTO_PRESET,
-      name: AUTO_PRESET,
-    })
+    // Auto 的固定 bundle 是 danger-full-access，锁定模式下不可选。
+    expect(ctx.permissionPresets.names).toEqual(['workspace-write'])
 
     await fiber.dispose()
-    expect(ctx.permissionPresets.names).toEqual(['workspace-write', 'danger-full-access'])
-    expect(() => ctx.permissionPresets.resolve(AUTO_PRESET)).toThrow(/unknown preset "auto"/)
+    expect(ctx.permissionPresets.names).toEqual(['workspace-write'])
   })
 
   it('rejects a duplicate Auto integration', async () => {
@@ -352,7 +346,8 @@ describe('new-session default', () => {
     expect(ctx.permissionPresets.defaultPreset).toBe('danger-full-access')
     const second = ctx.sessions.create(SessionId('second'))
     expect(ctx.permissionPresets.current(first)).toBe('workspace-write')
-    expect(ctx.permissionPresets.current(second)).toBe('danger-full-access')
+    // 不可达的历史默认会被落到锁定模式对应的预设上。
+    expect(ctx.permissionPresets.current(second)).toBe('workspace-write')
     expect(second.snapshotEvents().map(event => event.type)).toEqual([
       'permission/preset', 'sandbox/mode', 'approval/policy',
     ])

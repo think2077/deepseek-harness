@@ -8,7 +8,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
+import { canonicalPath, writableRoots, guardedPaths, GUARDED_HOME_DIRS, GUARDED_HOME_FILES, NO_GUARDS } from '@deepseek-ai/dsh-sandbox'
 
 /** Every temp root created by this file, removed after each test. */
 const roots: string[] = []
@@ -42,5 +42,24 @@ describe('writableRoots', () => {
     expect(writable).toContain(realpathSync.native(tmpdir()))
     // Deduplicated after canonicalization (/tmp and os.tmpdir() may coincide).
     expect(new Set(writable).size).toBe(writable.length)
+  })
+})
+
+describe('guardedPaths', () => {
+  it('names the cross-session state and the credentials, canonicalized under the home', () => {
+    const home = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-home-')))
+    roots.push(home)
+    const guards = guardedPaths(home)
+    expect(guards.dirs).toEqual(GUARDED_HOME_DIRS.map(name => join(home, name)))
+    expect(guards.files).toEqual(GUARDED_HOME_FILES.map(name => join(home, name)))
+    // The workspace/attachment/skill children stay reachable: the guard
+    // subtracts paths, it never whitelists the home.
+    expect(guards.dirs).not.toContain(join(home, 'workspaces'))
+    expect(guards.dirs).not.toContain(join(home, 'attachments'))
+  })
+
+  it('the empty guard set guards nothing (the explicit default for probes and tests)', () => {
+    expect(NO_GUARDS.dirs).toEqual([])
+    expect(NO_GUARDS.files).toEqual([])
   })
 })

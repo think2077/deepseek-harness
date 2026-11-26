@@ -79,6 +79,12 @@ export const CUSTOM_PRESET = 'custom'
 /** Canonical identity of the experimental per-call review preset. */
 export const AUTO_PRESET = 'auto'
 
+/**
+ * 代码级锁定的文件效应模式，与 `@deepseek-ai/dsh-sandbox-policy` 里的
+ * `LOCKED_MODE` 保持一致：只有这个模式的预设才允许被选择。
+ */
+const LOCKED_SANDBOX_MODE: SandboxMode = 'workspace-write'
+
 /** Fixed execution bundle for the live Auto integration. */
 const AUTO_PRESET_SPEC: PresetSpec = {
   sandbox: 'danger-full-access',
@@ -288,11 +294,16 @@ export class PermissionPresetService extends TypertRemoteService {
 
   /**
    * The advertised preset names: configured entries in declaration order,
-   * followed by Auto while its integration is live.
+   * followed by Auto while its integration is live. Under the code-locked
+   * `workspace-write` mode only presets with that sandbox are offered — the
+   * wider ones cannot take effect, so offering them would mislead.
    * @returns every switchable preset name.
    */
   get names(): readonly string[] {
-    return [...Object.keys(this.presets), ...(this.autoAdmit === undefined ? [] : [AUTO_PRESET])]
+    const configured = Object.keys(this.presets).filter(name => this.presets[name]?.sandbox === LOCKED_SANDBOX_MODE)
+    // Auto 的固定 bundle 是 danger-full-access，锁定时同样不可达。
+    const auto = this.autoAdmit !== undefined && AUTO_PRESET_SPEC.sandbox === LOCKED_SANDBOX_MODE ? [AUTO_PRESET] : []
+    return [...configured, ...auto]
   }
 
   /**
@@ -439,7 +450,9 @@ export class PermissionPresetService extends TypertRemoteService {
       this.autoAdmit()
     }
     if (preset === null && sandbox === null && approval === null && !seeded) {
-      const name = this.defaultPreset
+      // 历史 settings 里若残留不可达的预设，落到锁定模式对应的第一个可选预设。
+      const configuredDefault = this.defaultPreset
+      const name = this.names.includes(configuredDefault) ? configuredDefault : this.names[0] ?? configuredDefault
       const spec = this.resolve(name)
       session.append('permission/preset', { preset: name })
       setSandboxMode(session, spec.sandbox)

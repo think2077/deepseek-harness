@@ -13,7 +13,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
-import { ESCALATION_TARGETS, approveEscalation, escalationHintMarker, sandboxDenialMarker, validateEscalationArgs } from '@deepseek-ai/dsh-sandbox'
+import { approveEscalation, escalationHintMarker, sandboxDenialMarker, validateEscalationArgs } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import { FsError } from '@deepseek-ai/dsh-fs'
 
@@ -42,7 +42,9 @@ export class FsSandboxController {
 
   constructor(private readonly ctx: Context) {
     const defaultMode = ctx.fs.sandboxMode
-    this.escalationModes = defaultMode === undefined ? [] : ESCALATION_TARGETS
+    // 模式在 `@deepseek-ai/dsh-sandbox-policy` 里代码级写死为 workspace-write，
+    // 更宽的模式不可达，因此不广告升级字段（伪造入参由执行期守卫拒绝）。
+    this.escalationModes = []
     this.policy = defaultMode === undefined ? undefined : ctx.get('sandboxPolicy')
     if (defaultMode !== undefined && this.policy === undefined) {
       throw new Error('tool-fs: the mounted filesystem confines but ctx.sandboxPolicy is missing')

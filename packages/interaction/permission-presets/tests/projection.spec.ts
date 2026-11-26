@@ -60,18 +60,15 @@ describe('permissions projection unit', () => {
     expect(value).not.toHaveProperty('options')
   })
 
-  it('folds the knob events and notifies the change feed per knob append', async () => {
+  it('refuses a wider preset switch before any knob is touched', async () => {
     const { ctx, session } = await harness()
     const changes: { key: string; value: unknown; seq: number }[] = []
     ctx.sessionProjections.onChanged((_session, key, value, seq) => {
       changes.push({ key, value, seq })
     })
-    ctx.permissionPresets.set(session, 'danger-full-access')
-    const permissionChanges = changes.filter(change => change.key === 'permissions')
-    expect(permissionChanges).toHaveLength(3)
-    expect(permissionChanges.at(-1)).toMatchObject({ key: 'permissions', value: { currentValue: 'danger-full-access' } })
-    session.append('turn/start', { turn: 1 })
-    expect(changes).toHaveLength(3)
+    // 模式锁定在 workspace-write：更宽的预设即便配置在表里也不能被选中。
+    expect(() => ctx.permissionPresets.set(session, 'danger-full-access')).toThrow('unknown preset "danger-full-access"')
+    expect(changes.filter(change => change.key === 'permissions')).toHaveLength(0)
   })
 
   it('projects custom as a current value when the knobs match no preset', async () => {
@@ -89,22 +86,23 @@ describe('permissions projection unit', () => {
     ctx.on('permission-presets/catalog-changed', () => { notifications.push(notifications.length + 1) })
 
     expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access'])
+      .toEqual(['workspace-write'])
     const fiber = await mountAuto(ctx)
+    // Auto 的固定 bundle 是 danger-full-access，锁定模式下不可达，不进 catalog。
     expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
+      .toEqual(['workspace-write'])
     expect(session.seq).toBe(beforeSeq)
     expect(ctx.sessionProjections.snapshot(session)).toEqual(beforeProjection)
 
     await fiber.dispose()
     expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access'])
+      .toEqual(['workspace-write'])
     expect(session.seq).toBe(beforeSeq)
     expect(ctx.sessionProjections.snapshot(session)).toEqual(beforeProjection)
 
     const reinstalled = await mountAuto(ctx)
     expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
+      .toEqual(['workspace-write'])
     expect(notifications).toEqual([1, 2, 3])
     await reinstalled.dispose()
     expect(notifications).toEqual([1, 2, 3, 4])
@@ -124,7 +122,7 @@ describe('permissions projection unit', () => {
     await vi.waitFor(() => { expect(warned).toHaveBeenCalledTimes(4) })
     expect(warned).toHaveBeenCalledWith('permission: catalog-changed listener failed: sync non-error failed')
     expect(warned).toHaveBeenCalledWith('permission: catalog-changed listener failed: async non-error failed')
-    expect(ctx.permissionPresets.names).toContain(AUTO_PRESET)
+    expect(ctx.permissionPresets.names).not.toContain(AUTO_PRESET)
     await fiber.dispose()
   })
 
@@ -140,34 +138,33 @@ describe('permissions projection unit', () => {
 })
 
 describe('/permission command', () => {
-  it('lists and switches a contributed current-session preset', async () => {
+  it('lists the locked preset and refuses a contributed wider one', async () => {
     const { ctx, session } = await harness()
     await mountAuto(ctx)
     const { agent } = await agentFor(ctx, session)
     const listed = await ctx.commands.execute(agent, '/permission', [], new AbortController().signal)
     expect(listed?.result).toEqual({
       kind: 'success',
-      text: 'current preset workspace-write (available: workspace-write, danger-full-access, auto)',
+      text: 'current preset workspace-write (available: workspace-write)',
     })
-    const switched = await ctx.commands.execute(agent, '/permission auto', [], new AbortController().signal)
-    expect(switched?.result).toEqual({ kind: 'success', text: 'preset auto' })
-    expect(ctx.permissionPresets.current(session)).toBe(AUTO_PRESET)
+    const refused = await ctx.commands.execute(agent, '/permission auto', [], new AbortController().signal)
+    expect(refused?.result).toEqual({
+      kind: 'error',
+      text: 'unknown preset "auto" (available: workspace-write)',
+    })
+    expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
   })
 
-  it('switches through permission.set and logs the lifecycle pair', async () => {
+  it('refuses a wider preset without changing the current preset or notifying', async () => {
     const { ctx, session } = await harness()
     const { agent, inject } = await agentFor(ctx, session)
     const execution = await ctx.commands.execute(agent, '/permission danger-full-access', [], new AbortController().signal)
-    expect(execution?.result).toEqual({ kind: 'success', text: 'preset danger-full-access' })
-    expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
-    expect(inject.mock.calls[0]?.[0]).toMatchObject({
-      content: [{
-        type: 'text',
-        text: 'The approval policy changed from "ask" to "never" (changed by the user).',
-      }],
+    expect(execution?.result).toEqual({
+      kind: 'error',
+      text: 'unknown preset "danger-full-access" (available: workspace-write)',
     })
-    const run = session.snapshotEvents().find(event => event.type === 'command/run')
-    expect(run?.data).toMatchObject({ name: 'permission', args: ' danger-full-access' })
+    expect(ctx.permissionPresets.current(session)).toBe('workspace-write')
+    expect(inject).not.toHaveBeenCalled()
   })
 
   it('reports the current preset and the table on bare invocation', async () => {
@@ -176,7 +173,7 @@ describe('/permission command', () => {
     const execution = await ctx.commands.execute(agent, '/permission', [], new AbortController().signal)
     expect(execution?.result).toEqual({
       kind: 'success',
-      text: 'current preset workspace-write (available: workspace-write, danger-full-access)',
+      text: 'current preset workspace-write (available: workspace-write)',
     })
     expect(session.snapshotEvents().filter(event => event.type === 'permission/preset')).toHaveLength(1)
   })
@@ -192,7 +189,7 @@ describe('/permission command', () => {
     // preset`, which the row's own title already says.
     expect(execution?.result).toEqual({
       kind: 'error',
-      text: 'unknown preset "yolo" (available: workspace-write, danger-full-access)',
+      text: 'unknown preset "yolo" (available: workspace-write)',
     })
     expect(session.snapshotEvents().filter(event =>
       event.type !== 'command/run' && event.type !== 'command/done')).toEqual(before)

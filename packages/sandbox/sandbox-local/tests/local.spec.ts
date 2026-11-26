@@ -8,13 +8,13 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { LAUNCHER_FAILURE_EXIT } from '@deepseek-ai/node-addon-system/landlock-run'
-import { SANDBOX_UNAVAILABLE, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
+import { NO_GUARDS, SANDBOX_UNAVAILABLE, SandboxUnavailableError, canonicalPath, guardedPaths } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import {
   LocalSandboxProvider,
@@ -35,7 +35,9 @@ async function setup(config: Config = {}, internals: LocalSandboxProvider['inter
   const ctx = new Context()
   await ctx.plugin(LocalSandboxProvider, config)
   const sandbox = ctx.sandbox as LocalSandboxProvider
-  sandbox.internals = internals
+  // An empty guard set by default: profile expectations stay host-independent
+  // (the real guarded entries live under the developer's own Harness home).
+  sandbox.internals = { guards: NO_GUARDS, ...internals }
   return { ctx, sandbox }
 }
 
@@ -114,6 +116,56 @@ describe('profile dialects', () => {
     const grant = `(subpath "${realpathSync(tmpdir())}")`
     expect(profile).toContain(grant)
     expect(profile.split(grant)).toHaveLength(2)
+  })
+
+  it('guarded home entries are denied LAST in the seatbelt profile, for both read and write', () => {
+    const home = mkdtempSync(join(tmpdir(), 'dsh-guard-home-'))
+    tempDirs.push(home)
+    mkdirSync(join(home, 'sessions'), { recursive: true })
+    writeFileSync(join(home, 'settings.yaml'), 'x')
+    const guards = guardedPaths(home)
+    const profile = seatbeltProfileArgs(WW, guards)[1] as string
+    const dir = canonicalPath(join(home, 'sessions'))
+    const file = canonicalPath(join(home, 'settings.yaml'))
+    const filters = `(subpath "${dir}") (subpath "${canonicalPath(join(home, '.agent-presets'))}") (subpath "${canonicalPath(join(home, 'storages'))}") (literal "${file}") (literal "${canonicalPath(join(home, '.credentials.yaml'))}") (literal "${canonicalPath(join(home, 'feishu.env'))}")`
+    // Last-match wins in SBPL: the denies must come after `(allow default)` and
+    // after the write grants, so they subtract in BOTH directions.
+    expect(profile).toContain(`(deny file-read* ${filters})`)
+    expect(profile.endsWith(`(deny file-write* ${filters})`)).toBe(true)
+  })
+
+  it('bwrap hides guarded entries instead of denying them: dirs become empty tmpfs, files become read-only /dev/null', () => {
+    const home = mkdtempSync(join(tmpdir(), 'dsh-guard-home-'))
+    tempDirs.push(home)
+    mkdirSync(join(home, 'sessions'), { recursive: true })
+    writeFileSync(join(home, 'settings.yaml'), 'x')
+    const guards = guardedPaths(home)
+    // A path that does not exist is skipped: mounting onto it would make bwrap
+    // CREATE the path on the host.
+    const absent = mkdtempSync(join(tmpdir(), 'dsh-guard-absent-'))
+    tempDirs.push(absent)
+    const guardsWithAbsent = { ...guards, dirs: [...guards.dirs, join(absent, 'nope')] }
+    const args = bwrapProfileArgs(WW, guardsWithAbsent)
+    const dir = canonicalPath(join(home, 'sessions'))
+    const file = canonicalPath(join(home, 'settings.yaml'))
+    expect(args).toContain('--tmpfs')
+    expect(args.slice(args.indexOf(dir) - 1, args.indexOf(dir) + 1)).toEqual(['--tmpfs', dir])
+    expect(args.slice(args.indexOf(file) - 2, args.indexOf(file) + 1)).toEqual(['--ro-bind', '/dev/null', file])
+    expect(args).not.toContain(join(absent, 'nope'))
+  })
+})
+
+describe('the harness-home guard in the wrap', () => {
+  it('a confined command carries the guard filters for the resolved home', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'dsh-guard-home-'))
+    tempDirs.push(home)
+    mkdirSync(join(home, 'sessions'), { recursive: true })
+    writeFileSync(join(home, 'settings.yaml'), 'x')
+    const guards = guardedPaths(home)
+    const exec = fakeSeatbeltExec(0)
+    const { sandbox } = await setup({}, { chain: ['bwrap', 'seatbelt'], probeBwrap: () => false, seatbeltExec: exec, guards })
+    const confined = await sandbox.confine(['true'], RO)
+    expect(confined.argv).toEqual([exec, ...seatbeltProfileArgs(RO, guards), '--', 'true'])
   })
 })
 

@@ -18,7 +18,8 @@ export {
   validateEscalationArgs,
 } from './escalation.ts'
 export type { EscalationApproval, EscalationApprover, EscalationOutcome, EscalationRequest } from './escalation.ts'
-export { canonicalPath, writableRoots } from './roots.ts'
+export { canonicalPath, writableRoots, guardedPaths, GUARDED_HOME_DIRS, GUARDED_HOME_FILES, NO_GUARDS } from './roots.ts'
+export type { GuardedPaths } from './roots.ts'
 
 /**
  * File-effect policy for confined processes. `read-only` permits only required
