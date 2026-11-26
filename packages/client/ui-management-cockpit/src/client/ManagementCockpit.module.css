@@ -21,6 +21,8 @@
 .cards p { margin: 0 0 4px; font-size: 13px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .chip { flex: none; padding: 2px 8px; color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-bg-layer-2); border-radius: 6px; font-size: 12px; white-space: nowrap; }
 .cards article.riskCard { display: block; padding: 12px 14px; }
+.employeeList { margin-top: 16px; }
+.employeeList .cards article { justify-content: flex-start; }
 .riskHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .riskHead h3 { margin: 0; min-width: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cards .riskDesc { margin: 0; font-size: 13px; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

@@ -1,5 +1,5 @@
 ---
-description: "The read-only management cockpit for current project stages, Session activity, failed jobs, and a disposable workflow preview."
+description: "The read-only management cockpit for current project stages, authored digital employees, Session activity, failed jobs, and a disposable workflow preview."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The management cockpit summarizes the project, Workspace, Session, and job data already available in the Web client. Users can inspect project-stage counts, current project cards, digital-employee activity, and recent work without creating another reporting store. Its workflow dialog is a disposable preview: closing, cancelling, or saving discards every edit.
+The management cockpit summarizes the project, Workspace, Session, job, and digital-employee roster data already available in the Web client. Users can inspect project-stage counts, current project cards, authored digital employees, and recent work without creating another reporting store. Its workflow dialog is a disposable preview: closing, cancelling, or saving discards every edit.
 
 ## Table of Contents
 
@@ -47,7 +47,7 @@ The plugin has no configuration fields.
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The plugin follows the project metadata Remote in its own snapshot store. The component joins those rows with the standard Workspace and Session snapshots during render. Workflow drafts stay in component-local React state and never cross the browser transport.
+The plugin follows the project metadata Remote in its own snapshot store. The component joins those rows with the standard Workspace and Session snapshots during render and reads the authored digital-employee roster separately. Workflow drafts stay in component-local React state and never cross the browser transport.
 
 | File | Role |
 |---|---|
@@ -82,6 +82,7 @@ None; the package does not assemble or send model requests.
 
 - Workflow edits are intentionally discarded when the dialog closes.
 - Results-to-review remains zero because no existing projection represents business-result review.
+- The digital-employee tab lists authored presets by name and description. It does not infer runtime status or project ownership.
 - Recent work lists durable Sessions newest first; blank drafts and sub-agent Sessions are excluded. The employee column reads each Session's persisted `agentPreset` projection and falls back to a general-assistant label when no cached value exists. The project column resolves the Session `cwd` against Workspace records, so a Session outside a project Workspace shows its Workspace title.
 - Project risk text uses existing project descriptions and a fixed next-step label; it does not run a risk model.
 

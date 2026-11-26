@@ -14,7 +14,10 @@ const catalog: ProjectCatalog = { canManage: true, projects: [{
   stage: 'discovery', status: 'active', createdBy: 'user-1' as ProjectCatalog['projects'][number]['createdBy'], createdAt: '2026-11-25T00:00:00Z', updatedAt: '2026-11-25T01:00:00Z',
 }] }
 const roster: AgentPresetRoster = {
-  presets: [{ id: 'solution-expert', trust: 'user', isDefault: false, name: 'Regional specialist' }],
+  presets: [
+    { id: 'solution-expert', trust: 'user', isDefault: false, name: 'Regional specialist', description: 'Creates regional plans.' },
+    { id: 'system-helper', trust: 'system', isDefault: true, name: 'System helper' },
+  ],
   authorable: true, modeSelectionEnabled: true,
 }
 const workspaces = { items: [
@@ -67,5 +70,17 @@ describe('management cockpit', () => {
     // The employee column reads the Session preset projection through the roster.
     expect(await screen.findByText('Regional specialist')).toBeDefined()
     expect(screen.queryByText('No project')).toBeNull()
+  })
+
+  it('lists authored digital employees without inferred runtime data', async () => {
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Digital employees' }))
+    expect(await screen.findByText('Regional specialist')).toBeDefined()
+    expect(screen.getByText('Creates regional plans.')).toBeDefined()
+    expect(screen.queryByText('System helper')).toBeNull()
+    expect(screen.queryByText('Project kickoff')).toBeNull()
+    expect(screen.queryByText('Active projects')).toBeNull()
+    expect(screen.queryByText('Running')).toBeNull()
+    expect(screen.queryByText('Completed')).toBeNull()
   })
 })

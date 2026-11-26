@@ -54,17 +54,19 @@ export function ManagementCockpit({ t, useCockpit, useSessions, useWorkspaces, r
   const sessions = useSessions(value => value)
   const workspaces = useWorkspaces(value => value)
   const [roster, setRoster] = useState<AgentPresetRoster>()
+  const [rosterError, setRosterError] = useState(false)
   const [tab, setTab] = useState<'projects' | 'employees'>('projects')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Workflow>(() => initialWorkflow(t))
   useEffect(() => {
     let active = true
-    void readRoster().then((value) => { if (active) setRoster(value) }, () => {})
+    void readRoster().then((value) => { if (active) setRoster(value) }, () => { if (active) setRosterError(true) })
     return () => { active = false }
   }, [readRoster])
   const projects = catalog?.projects ?? []
   const active = projects.filter(project => project.status === 'active')
   const rows = recentWork(sessions)
+  const employees = roster?.presets.filter(preset => preset.trust === 'user')
   const reruns = Object.values(sessions.jobsBySession).flat().filter(job => job.status === 'failed').length
   const counts = new Map(STAGES.map(stage => [stage, active.filter(project => project.stage === stage).length]))
   const max = Math.max(1, ...counts.values())
@@ -88,16 +90,14 @@ export function ManagementCockpit({ t, useCockpit, useSessions, useWorkspaces, r
   return <main className={css.page}>
     <header className={css.header}><div><h1>{t('title')}</h1><p>{t('intro')}</p></div><Button variant="outline" onClick={() => { setDraft(initialWorkflow(t)); setEditing(true) }}>{t('configure')}</Button></header>
     <nav className={css.tabs} aria-label={t('title')}><button type="button" aria-pressed={tab === 'projects'} onClick={() => { setTab('projects') }}>{t('projectTab')}</button><button type="button" aria-pressed={tab === 'employees'} onClick={() => { setTab('employees') }}>{t('employeeTab')}</button></nav>
-    <section className={css.metrics}>{([[t('total'), projects.length], [t('active'), active.length], [t('review'), 0], [t('rerun'), reruns]] as const).map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>
-    {tab === 'projects' ? <div className={css.overview}>
+    {tab === 'projects' ? <><section className={css.metrics}>{([[t('total'), projects.length], [t('active'), active.length], [t('review'), 0], [t('rerun'), reruns]] as const).map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section><div className={css.overview}>
       <section><h2>{t('distribution')}</h2><div className={css.stageList}>{STAGES.map((stage) => { const count = counts.get(stage) ?? 0; return <div className={css.stageRow} key={stage}><span>{t(stage)}</span><i><b style={{ width: `${count === 0 ? 0 : Math.max(4, count / max * 100)}%` }} /></i><strong>{count}</strong></div> })}</div></section>
       <section><h2>{t('risks')}</h2><div className={css.cards}>{active.slice(0, 4).map(project => <article className={css.riskCard} key={project.projectId}>
         <div className={css.riskHead}><h3>{project.title}</h3><span className={css.chip}>{t(project.stage)}</span></div>
         <p className={css.riskDesc}>{project.description.trim() || t('fallback')}</p>
         <p className={css.riskNext}>{t('next')}</p>
       </article>)}</div></section>
-    </div> : <section className={css.cards}><h2>{t('employeeTab')}</h2>{EMPLOYEES.map((employee, index) => <article key={employee}><div><strong>{t(employee)}</strong><p>{active[index % Math.max(active.length, 1)]?.title ?? t('empty')}</p></div><span className={css.chip}>{rows.some(row => row.running) && index === 0 ? t('running') : t('completed')}</span></article>)}</section>}
-    <section className={css.recent}><h2>{t('recent')}</h2><div className={css.table}><div className={css.tableHead}><span>{t('task')}</span><span>{t('project')}</span><span>{t('employee')}</span><span>{t('status')}</span><span>{t('time')}</span></div>{rows.length === 0 ? <p>{t('empty')}</p> : rows.map((session) => {
+    </div><section className={css.recent}><h2>{t('recent')}</h2><div className={css.table}><div className={css.tableHead}><span>{t('task')}</span><span>{t('project')}</span><span>{t('employee')}</span><span>{t('status')}</span><span>{t('time')}</span></div>{rows.length === 0 ? <p>{t('empty')}</p> : rows.map((session) => {
       const project = projectOf(session)
       const employee = employeeOf(session)
       return <div className={css.tableRow} key={session.id}>
@@ -109,7 +109,13 @@ export function ManagementCockpit({ t, useCockpit, useSessions, useWorkspaces, r
           {timeLabel(session.updatedAt)}
         </time>
       </div>
-    })}</div></section>
+    })}</div></section></> : <section className={css.employeeList}><h2>{t('employeeTab')}</h2>{rosterError ? <p role="alert">{t('employeeError')}</p>
+      : employees === undefined ? <p role="status">{t('employeeLoading')}</p>
+        : employees.length === 0 ? <p>{t('employeeEmpty')}</p>
+          : <div className={css.cards}>{employees.map(employee => <article key={employee.id}><div>
+            <strong>{employee.name ?? employee.id}</strong>
+            {employee.description !== undefined && <p>{employee.description}</p>}
+          </div></article>)}</div>}</section>}
     <Modal open={editing} title={t('workflowTitle')} description={t('workflowHint')} closeLabel={t('close')} onClose={() => { setEditing(false) }} className={css.workflowDialog ?? ''} contentClassName={css.workflowContent ?? ''} footer={<><Button variant="ghost" onClick={() => { setEditing(false) }}>{t('cancel')}</Button><Button variant="primary" onClick={() => { setEditing(false) }}>{t('save')}</Button></>}>
       <div className={css.workflow}>{STAGES.map(stage => <section key={stage}><h3>{t(stage)}</h3>{draft[stage].map((activity, index) => <article key={index}><h4>{t('activity')} {index + 1}</h4><div className={css.fields}><label>{t('activityName')}<Input value={activity.name} onChange={(event) => { update(stage, index, { name: event.target.value }) }} /></label><label>{t('owner')}<Input value={activity.owner} placeholder={t('ownerPlaceholder')} onChange={(event) => { update(stage, index, { owner: event.target.value }) }} /></label><label>{t('execution')}<select aria-label={t('execution')}><option>{t('ai')}</option></select></label></div><p>{t('employeeChoice')}</p><div className={css.choices}>{EMPLOYEES.map(employee => <label key={employee}><input type="checkbox" checked={activity.employees.includes(employee)} onChange={(event) => { update(stage, index, { employees: event.target.checked ? [...activity.employees, employee] : activity.employees.filter(value => value !== employee) }) }} />{t(employee)}</label>)}</div></article>)}<Button variant="outline" onClick={() => { setDraft(current => ({ ...current, [stage]: [...current[stage], { name: '', owner: '', employees: [] }] })) }}>＋ {t('add')}</Button></section>)}</div>
     </Modal>
