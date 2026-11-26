@@ -3,9 +3,13 @@
   object-fit: contain;
 }
 
-/* The hero uses the horizontal lockup, so its height follows the width. */
+/* The hero uses the horizontal lockup, so its height follows the width.
+   Width tracks the live conversation column (published on the hero root as
+   --dsh-conversation-column-width): 224px caps the desktop mark, the floor
+   keeps the glyph legible on narrow/mobile-sized columns, and max-width
+   never lets it overflow the available stack width. */
 .heroLockup {
-  width: 288px;
+  width: clamp(150px, calc(var(--dsh-conversation-column-width, 1200px) * 0.3), 224px);
   max-width: 100%;
   height: auto;
 }

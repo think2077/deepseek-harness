@@ -23,17 +23,20 @@
   overflow: visible;
 }
 
-/* Hero identity: mark on top, headline underneath, centered; 26/32 wt500. */
+/* Hero identity: mark on top, headline underneath, centered; 26/32 wt500.
+   Type and gap scale with the live conversation column (published on the hero
+   root) so a narrow/mobile-sized column steps down instead of wrapping at the
+   desktop 26px; the clamps hold the desktop figures on wide columns. */
 .headline {
   display: flex;
   /* Two deliberate layers instead of one line: the brand mark reads as a
      logo above the headline at every viewport width. */
   flex-direction: column;
-  row-gap: 20px;
+  row-gap: clamp(14px, calc(var(--dsh-conversation-column-width, 1200px) * 0.026), 20px);
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  line-height: 32px;
+  font-size: clamp(18px, calc(var(--dsh-conversation-column-width, 1200px) * 0.034), 26px);
+  line-height: clamp(26px, calc(var(--dsh-conversation-column-width, 1200px) * 0.042), 32px);
   font-weight: 500;
   color: var(--dsw-alias-label-primary);
 }
@@ -55,6 +58,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* The swim morph's curves poke slightly past the viewBox edges, so clipping
