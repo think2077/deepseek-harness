@@ -2,6 +2,7 @@
 export const en = {
   'ltc': 'LTC',
   'nav': 'My workbench',
+  'navNote': '(coming soon)',
   'description': 'Find AI assistance from opportunity discovery through operations',
   'all': 'All stages',
   'business': 'Business',
@@ -62,6 +63,7 @@ export type WorkbenchLocaleKey = keyof typeof en
 export const zh: Record<WorkbenchLocaleKey, string> = {
   'ltc': 'LTC',
   'nav': '我的工作台',
+  'navNote': '（敬请期待）',
   'description': '从商机发现到项目运营，找到当前阶段可用的 AI 助手',
   'all': '全部流程',
   'business': '商务阶段',

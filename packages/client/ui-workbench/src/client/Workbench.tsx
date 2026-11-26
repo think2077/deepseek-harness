@@ -76,7 +76,7 @@ export function Workbench({ t, useSessions, useWorkspaces, startAssistant }: Pro
     }
   }
   return <main className={css.page}>
-    <header><span className={css.eyebrow}>{t('ltc')}</span><h1>{t('nav')}</h1><p>{t('description')}</p></header>
+    <header><span className={css.eyebrow}>{t('ltc')}</span><h1>{t('nav')}<span className={css.titleNote}>{t('navNote')}</span></h1><p>{t('description')}</p></header>
     <nav className={css.toolbar} aria-label={t('nav')}>
       {(['all', 'business', 'operations'] as const).map(key => <button key={key} type="button" aria-pressed={filter === key} onClick={() => { setFilter(key) }}>{t(key)}</button>)}
       <span className={css.legend}>{t('available')} · {t('soon')}</span>

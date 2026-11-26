@@ -55,18 +55,22 @@ it('lists only authored employees, searches them, and inspects details without s
   expect(zh.nav).toBe('数字员工')
 })
 
-it('starts the authoring entry inside Creator mode', async () => {
+it('starts the authoring entry inside Creator mode, with the employee template as its first draft', async () => {
   const app = mount({ current: 'existing' })
   await screen.findByText('Sales assistant')
   fireEvent.click(screen.getByRole('button', { name: en.create }))
-  await waitFor(() => { expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'cordis') })
+  await waitFor(() => {
+    expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'cordis', en.createPrompt)
+  })
+  expect(zh.createPrompt.split('\n').slice(0, 1)).toEqual(['请帮我创建一个数字员工。'])
+  expect(zh.createPrompt).toContain('工作边界与需人工确认的事项：')
 })
 
 it('creates a conversation in the current project', async () => {
   const app = mount({ current: 'existing' })
   await screen.findByText('Sales assistant')
   fireEvent.click(screen.getAllByRole('button', { name: en.start })[0]!)
-  await waitFor(() => { expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'sales') })
+  await waitFor(() => { expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'sales', undefined) })
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 

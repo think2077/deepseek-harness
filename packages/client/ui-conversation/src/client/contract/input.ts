@@ -9,6 +9,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ArbitrateKey, ArbitrateOutcome, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
 import type { QueueRow } from './queue.ts'
 import type { InputSubmitMode } from './composer-submission.ts'
@@ -205,6 +206,15 @@ export interface SessionInput extends InputTarget {
 export interface SessionInputResolver {
   /** Resolve the facade for one session-scope ctx. */
   for(actx: Context): SessionInput
+  /**
+   * Hand a starting draft to a Session addressed by id, from a caller that
+   * holds no session scope yet (a preset launcher around a session it just
+   * created). A resident composer takes it at once; one that has not
+   * materialized yet receives it when its scope assembles.
+   * @param sessionId - target Session.
+   * @param text - the draft to place in that Session's composer.
+   */
+  seed(sessionId: SessionId, text: string): void
 }
 
 /**

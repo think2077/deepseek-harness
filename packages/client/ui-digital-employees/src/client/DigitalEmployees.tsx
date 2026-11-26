@@ -16,7 +16,7 @@ const CREATOR_PRESET = 'cordis'
 type Props = PropsRuntime<'main'> & PropsLocale<'digitalEmployees'> & {
   readRoster: () => Promise<AgentPresetRoster>
   readInventory: () => Promise<PluginInventorySnapshot>
-  startAssistant: (workspaceId: WorkspaceId, presetId: string) => Promise<void>
+  startAssistant: (workspaceId: WorkspaceId, presetId: string, initialDraft?: string) => Promise<void>
 }
 
 /** Render the authored roster as rows, read-only details, and a workspace conversation launcher.
@@ -33,7 +33,7 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
   const [selected, setSelected] = useState<string>()
   const detailRef = useRef<HTMLElement>(null)
   useEffect(() => { detailRef.current?.focus() }, [selected])
-  const [pending, setPending] = useState<string>()
+  const [pending, setPending] = useState<{ presetId: string; initialDraft?: string }>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const current = useSessions(state => state.current)
@@ -45,18 +45,20 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
     void readInventory().then((value) => { if (active) setInventory(value) }, () => { if (active) setInventoryError(true) })
     return () => { active = false }
   }, [readRoster, readInventory, revision])
-  const start = async (workspaceId: WorkspaceId, presetId: string): Promise<void> => {
+  const start = async (workspaceId: WorkspaceId, presetId: string, initialDraft?: string): Promise<void> => {
     if (busy) return
     setBusy(true); setError(undefined)
-    try { await startAssistant(workspaceId, presetId) } catch (reason) {
+    try { await startAssistant(workspaceId, presetId, initialDraft) } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('startError'))
     } finally { setBusy(false) }
   }
-  const launch = (presetId: string): void => {
+  // The authoring entry opens the Creator session with the employee template
+  // already in the composer: the fields are what the preset file has to answer.
+  const launch = (presetId: string, initialDraft?: string): void => {
     setError(undefined)
     const workspace = current === undefined ? undefined : workspaces.items.find(item => item.sessionIds.includes(current))
-    if (workspace === undefined) setPending(presetId)
-    else void start(workspace.workspaceId, presetId)
+    if (workspace === undefined) setPending({ presetId, ...initialDraft === undefined ? {} : { initialDraft } })
+    else void start(workspace.workspaceId, presetId, initialDraft)
   }
   // Built-in presets are deployment machinery, not the organization's own
   // employees: the directory lists only what the deployment authored.
@@ -71,7 +73,7 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
   return <main className={css.page}>
     <header className={css.header}>
       <div><h1>{t('nav')}</h1><p>{t('description')}</p></div>
-      <Button variant="primary" disabled={busy || roster === undefined} onClick={() => { launch(CREATOR_PRESET) }}>
+      <Button variant="primary" disabled={busy || roster === undefined} onClick={() => { launch(CREATOR_PRESET, t('createPrompt')) }}>
         <IconPlusOutline16 size={14} />{t('create')}
       </Button>
     </header>
@@ -115,7 +117,7 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
       <h2>{t('chooseWorkspace')}</h2><p>{t('workspaceHint')}</p>
       {workspaces.state === 'error' ? <p role="alert">{t('workspaceError')}</p> : workspaces.phase !== 'ready' ? <p role="status">{t('workspaceLoading')}</p>
         : workspaces.items.length === 0 ? <p>{t('noWorkspaces')}</p> : <div className={css.badges}>{workspaces.items.map(workspace => <Button key={workspace.workspaceId} variant="outline" disabled={busy}
-          onClick={() => { void start(workspace.workspaceId, pending) }}>{workspace.title}</Button>)}</div>}
+          onClick={() => { void start(workspace.workspaceId, pending.presetId, pending.initialDraft) }}>{workspace.title}</Button>)}</div>}
       <Button variant="ghost" disabled={busy} onClick={() => { setPending(undefined); setError(undefined) }}>{t('close')}</Button>
     </section>}
   </main>

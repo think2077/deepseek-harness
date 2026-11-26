@@ -610,6 +610,20 @@ describe('UiWorkspaceService', () => {
   })
 })
 
+it('seeds the new composer with the launcher-provided draft before it opens', async () => {
+  const b = bench({ workspaces: workspaceState([workspace('alpha')]) })
+  const select = vi.fn(async () => ({ ok: true, value: undefined }) as never)
+  Reflect.set(b.ctx, 'remote', { agentPresets: { select } })
+  const seed = vi.fn()
+  b.ctx.provide('conversation', { input: { seed } } as never)
+  const launch = b.uiWorkspace.createPresetSessionLauncher(new AbortController().signal)
+  await launch(wid('alpha'), 'cordis', 'Name:\n')
+  expect(select).toHaveBeenCalledWith(sid('created-alpha'), 'cordis')
+  expect(seed).toHaveBeenCalledWith(sid('created-alpha'), 'Name:\n')
+  expect(seed.mock.invocationCallOrder[0]).toBeLessThan(b.sessions.open.mock.invocationCallOrder[0]!)
+  expect(b.sessions.open).toHaveBeenCalledWith(sid('created-alpha'))
+})
+
 it('ignores preset launches after caller cancellation or workspace navigation disposal', async () => {
   const b = bench()
   const caller = new AbortController()

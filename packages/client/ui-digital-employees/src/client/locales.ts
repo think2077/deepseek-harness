@@ -18,6 +18,17 @@ export const en = {
 
   nav: 'Digital employees', description: 'Reusable work capabilities for the organization.',
   create: 'Create / edit digital employee',
+  // Starting draft for the Creator session: the fields a new or revised
+  // employee has to answer before any preset file is written.
+  createPrompt: [
+    'Please help me create a digital employee.',
+    'Name:',
+    'Responsibilities:',
+    'Applicable LTC-G stage:',
+    'Input:',
+    'Output:',
+    'Work boundaries and items requiring human confirmation:',
+  ].join('\n') + '\n',
   loading: 'Loading digital employees…', error: 'Could not load digital employees.', retry: 'Refresh',
   empty: 'No digital employees have been created yet.', noMatches: 'No digital employees match this search.',
   search: 'Search digital employees', default: 'Default', broken: 'Unavailable', published: 'Published', publicVisible: 'Public',
@@ -42,6 +53,15 @@ export const zh: Record<DigitalEmployeesLocaleKey, string> = {
 
   nav: '数字员工', description: '组织可复用的工作能力。',
   create: '创建/编辑数字员工',
+  createPrompt: [
+    '请帮我创建一个数字员工。',
+    '名称：',
+    '职责：',
+    '适用 LTC-G 阶段：',
+    '输入：',
+    '输出：',
+    '工作边界与需人工确认的事项：',
+  ].join('\n') + '\n',
   loading: '正在加载数字员工…', error: '无法加载数字员工。', retry: '刷新',
   empty: '还没有创建数字员工。', noMatches: '没有匹配的数字员工。',
   search: '搜索数字员工', default: '默认', broken: '不可用', published: '已发布', publicVisible: '公共',

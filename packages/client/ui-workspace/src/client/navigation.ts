@@ -10,6 +10,7 @@ import type {
   IWorkspaces, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
@@ -20,9 +21,13 @@ export interface UiWorkspace {
    * caller cancellation, or service disposal prevents opening the new session.
    * @param signal - Calling plugin lifetime; abort it when that plugin unloads.
    * @returns A launcher resolving after preset selection and opening; creation
-   * or selection failures reject and may leave an unopened blank session.
+   * or selection failures reject and may leave an unopened blank session. Its
+   * optional third argument is a first draft for the new composer, seeded
+   * before the Session opens.
    */
-  createPresetSessionLauncher(signal: AbortSignal): (workspaceId: WorkspaceId, presetId: string) => Promise<void>
+  createPresetSessionLauncher(
+    signal: AbortSignal,
+  ): (workspaceId: WorkspaceId, presetId: string, initialDraft?: string) => Promise<void>
 
   /**
    * Select a Session and show its Conversation as one UI navigation action.
@@ -122,9 +127,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     ctx.effect(() => this.watchNavigation(), 'ui-workspace: Workspace navigation policy')
   }
 
-  createPresetSessionLauncher(callerSignal: AbortSignal): (workspaceId: WorkspaceId, presetId: string) => Promise<void> {
+  createPresetSessionLauncher(
+    callerSignal: AbortSignal,
+  ): (workspaceId: WorkspaceId, presetId: string, initialDraft?: string) => Promise<void> {
     let starting = false
-    return async (workspaceId, presetId) => {
+    return async (workspaceId, presetId, initialDraft) => {
       if (starting || callerSignal.aborted || this.lifetime.signal.aborted) return
       starting = true
       const signal = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal, callerSignal])
@@ -134,6 +141,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         if (!isCurrent()) return
         const result = await this.ctx.remote.agentPresets.select(sessionId, presetId)
         if (!result.ok) throw new Error(result.error.message)
+        // Before opening: the composer reads its starting text from the input
+        // shell, so a draft seeded after the Session paints would be invisible.
+        if (initialDraft !== undefined) this.ctx.get('conversation')?.input.seed(sessionId, initialDraft)
         if (isCurrent()) this.openSession(sessionId)
       } finally {
         starting = false

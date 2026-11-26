@@ -50,6 +50,8 @@ interface ConversationAttachmentFace {
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
+  /** Starting drafts for Sessions whose composer has not materialized yet. */
+  private readonly seeds = new Map<SessionId, string>()
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -110,6 +112,13 @@ export class InputHub implements SessionInputResolver {
       },
     })
     this.shells.set(id, shell)
+    // A draft seeded before this Session assembled lands now, still ahead of
+    // the composer mount, so the store's own seed effect sees a non-empty draft.
+    const seed = this.seeds.get(id)
+    if (seed !== undefined) {
+      this.seeds.delete(id)
+      shell.setDraft(seed)
+    }
     // The one teardown axis: listeners, shell, and map entries all ride the
     // scope fiber (nothing here outlives the scope).
     actx.effect(() => {
@@ -132,6 +141,24 @@ export class InputHub implements SessionInputResolver {
       }
     }, 'conversation.input: session shell')
     return shell
+  }
+
+  /**
+   * Hand a starting draft to a Session by id. The composer seeds itself from
+   * the Conversation store on mount, so an id that has not assembled keeps the
+   * text in {@link seeds} and takes it at {@link shellFor}; an assembled one
+   * writes it straight into the resident editor (an empty draft is a no-op).
+   * @param sessionId - target Session.
+   * @param text - the draft to place in that Session's composer.
+   */
+  seed(sessionId: SessionId, text: string): void {
+    if (text === '') return
+    const shell = this.shells.get(sessionId)
+    if (shell === undefined) {
+      this.seeds.set(sessionId, text)
+      return
+    }
+    shell.setDraft(text)
   }
 
   /**
