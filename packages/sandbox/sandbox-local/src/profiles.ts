@@ -28,6 +28,11 @@ export function bwrapProfileArgs(policy: SandboxPolicy, guards: GuardedPaths = N
   if (policy.mode === 'workspace-write') {
     args.push('--tmpfs', '/tmp')
     args.push('--bind', policy.workspaceRoot, policy.workspaceRoot)
+    // Deployment-designated extra roots (the preset directory) bind read-write
+    // like the workspace; a missing root is skipped — bwrap would create it.
+    for (const root of policy.extraWritableRoots ?? []) {
+      if (existsSync(root)) args.push('--bind', root, root)
+    }
   }
   for (const dir of guards.dirs) {
     if (existsSync(dir)) args.push('--tmpfs', dir)
@@ -52,7 +57,7 @@ export function bwrapProfileArgs(policy: SandboxPolicy, guards: GuardedPaths = N
 export function landlockProfileArgs(policy: SandboxPolicy): string[] {
   const readWrite = ['/dev/null']
   if (policy.mode === 'workspace-write') {
-    readWrite.push('/tmp', policy.workspaceRoot)
+    readWrite.push('/tmp', policy.workspaceRoot, ...policy.extraWritableRoots ?? [])
   }
   return landlockGrantArgs({ readOnly: ['/'], readWrite })
 }

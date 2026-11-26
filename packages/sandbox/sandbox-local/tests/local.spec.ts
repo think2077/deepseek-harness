@@ -118,6 +118,19 @@ describe('profile dialects', () => {
     expect(profile.split(grant)).toHaveLength(2)
   })
 
+  it('extra writable roots (the preset directory) are granted in seatbelt, bwrap and landlock alike', () => {
+    const preset = mkdtempSync(join(tmpdir(), 'dsh-preset-root-'))
+    tempDirs.push(preset)
+    const policy: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws', extraWritableRoots: [preset] }
+    const roots = [...new Set(['/ws', realpathSync('/tmp'), realpathSync(tmpdir()), canonicalPath(preset)])]
+    const profile = seatbeltProfileArgs(policy)[1] as string
+    expect(profile).toContain(`(allow file-write* ${roots.map(root => `(subpath "${root}")`).join(' ')})`)
+    const args = bwrapProfileArgs(policy)
+    // The workspace bind comes first, then one `--bind <root> <root>` per extra root.
+    expect(args.slice(args.lastIndexOf('--bind'))).toEqual(['--bind', preset, preset])
+    expect(landlockProfileArgs(policy).join(' ')).toContain(preset)
+  })
+
   it('guarded home entries are denied LAST in the seatbelt profile, for both read and write', () => {
     const home = mkdtempSync(join(tmpdir(), 'dsh-guard-home-'))
     tempDirs.push(home)
@@ -127,7 +140,7 @@ describe('profile dialects', () => {
     const profile = seatbeltProfileArgs(WW, guards)[1] as string
     const dir = canonicalPath(join(home, 'sessions'))
     const file = canonicalPath(join(home, 'settings.yaml'))
-    const filters = `(subpath "${dir}") (subpath "${canonicalPath(join(home, '.agent-presets'))}") (subpath "${canonicalPath(join(home, 'storages'))}") (literal "${file}") (literal "${canonicalPath(join(home, '.credentials.yaml'))}") (literal "${canonicalPath(join(home, 'feishu.env'))}")`
+    const filters = `(subpath "${dir}") (subpath "${canonicalPath(join(home, 'storages'))}") (literal "${file}") (literal "${canonicalPath(join(home, '.credentials.yaml'))}") (literal "${canonicalPath(join(home, 'feishu.env'))}")`
     // Last-match wins in SBPL: the denies must come after `(allow default)` and
     // after the write grants, so they subtract in BOTH directions.
     expect(profile).toContain(`(deny file-read* ${filters})`)

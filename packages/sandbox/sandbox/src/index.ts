@@ -43,6 +43,15 @@ export interface SandboxExecutionPolicy {
   /** Absolute root directory `workspace-write` may write under. */
   workspaceRoot: string
   /**
+   * Additional absolute roots `workspace-write` may ALSO write under, besides
+   * the workspace and the platform temp areas. The policy owner fills this for
+   * deployment-designated agent data whose editing is intended (the
+   * digital-employee preset directory): every enforcement dialect derives its
+   * allow-list from {@link writableRoots}, so the fs fence, Seatbelt, bwrap and
+   * Landlock open the same extra roots together.
+   */
+  extraWritableRoots?: readonly string[]
+  /**
    * Opaque identity of the calling session (the branded `dsh-session`
    * SessionId). Backends key per-session state off it (e.g. windows-acl gives
    * each live session/workspace pair a random private temp directory and SID,

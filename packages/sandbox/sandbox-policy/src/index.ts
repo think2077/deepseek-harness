@@ -25,6 +25,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { z as zod } from 'zod'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent'
+import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-projection'
@@ -38,6 +39,13 @@ export { SANDBOX_MODES, setSandboxMode } from './session-mode.ts'
  * （升级批准后的 `request.mode`）一律不再生效，执行层只会拿到这个值。
  */
 const LOCKED_MODE: SandboxMode = 'workspace-write'
+
+/**
+ * 数字员工预设目录（`<Harness home>/.agent-presets`）：这是 agent 需要读写的
+ * 部署数据，因此作为额外可写根放进每次解析出的策略里，同时不在 home 黑名单中。
+ * 其余 home 子目录（`sessions`、`storages`）和凭证文件仍然一律拒绝。
+ */
+const PRESET_DIR = '.agent-presets'
 
 /** Preserve execution-world spelling; enforcing providers resolve filesystem identity on their host. */
 function resolveWorkspaceRoot(path: string): string {
@@ -170,15 +178,19 @@ export class SandboxPolicyService extends Service {
    * {@link LOCKED_MODE} — deployment config, session `sandbox/mode` events and
    * approved per-call overrides are all ignored. A session cwd is its
    * workspace-write boundary; the configured root is the fallback for agentless
-   * calls and sessions without a cwd.
+   * calls and sessions without a cwd. The digital-employee preset directory
+   * (`<Harness home>/.agent-presets`) is carried as an EXTRA writable root: editing
+   * the presets is a supported task, so it is read-write for every session while
+   * `sessions`, `storages` and the credential files stay out of reach.
    * @param request - optional session and approved mode override (mode ignored).
-   * @returns the fully resolved per-call mode and absolute workspace root.
+   * @returns the fully resolved per-call mode, absolute workspace root, and extra writable roots.
    */
   resolve(request: SandboxPolicyRequest = {}): SandboxExecutionPolicy {
     const { session } = request
     return {
       mode: LOCKED_MODE,
       workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),
+      extraWritableRoots: [dshHomePath(PRESET_DIR)],
       ...session === undefined ? {} : { sessionId: session.id },
     }
   }

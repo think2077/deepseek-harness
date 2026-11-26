@@ -547,20 +547,34 @@ describe('tool-str-replace-editor', () => {
     expect(await readFile(created, 'utf8')).toBe('new')
   })
 
-  it('passes the session sandbox policy to every mutation', async () => {
+  it('passes the session sandbox policy to every mutation (mode is locked to workspace-write)', async () => {
+    // The deployment mode is code-locked to `workspace-write`: a configured
+    // `read-only` no longer narrows the fence, so the workspace stays writable
+    // while everything outside it (and outside the temp roots) is refused.
     const { ctx, root, owner } = await setup({}, { sandboxMode: 'read-only' })
-    const path = join(root, 'blocked.txt')
+    const inside = join(root, 'allowed.txt')
     const result = await call(ctx, owner, {
       command: 'create',
-      path,
+      path: inside,
+      file_text: 'ok',
+    })
+    expect(result.error).toBeUndefined()
+    expect(await readFile(inside, 'utf8')).toBe('ok')
+
+    // Outside the workspace AND outside the platform temp roots.
+    const outsideDir = await mkdtemp(join(process.cwd(), '.dsh-editor-outside-'))
+    roots.push(outsideDir)
+    const denied = await call(ctx, owner, {
+      command: 'create',
+      path: join(outsideDir, 'blocked.txt'),
       file_text: 'blocked',
     })
-    expect(result.error).toMatchObject({ info: { code: 'FS_SANDBOX_DENIED' } })
-    expect(text(result)).toContain('[sandbox: file access denied under read-only mode]')
+    expect(denied.error).toMatchObject({ info: { code: 'FS_SANDBOX_DENIED' } })
+    expect(text(denied)).toContain('[sandbox: file access denied under workspace-write mode]')
 
     const ownerless = await call(ctx, undefined, {
       command: 'create',
-      path: join(root, 'ownerless-blocked.txt'),
+      path: join(outsideDir, 'ownerless-blocked.txt'),
       file_text: 'blocked',
     })
     expect(ownerless.error).toMatchObject({ info: { code: 'FS_SANDBOX_DENIED' } })

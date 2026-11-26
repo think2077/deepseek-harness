@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
+import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import SandboxPolicyService, { SANDBOX_MODES, setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt, { renderContextSnapshot, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
@@ -72,6 +73,7 @@ describe('SandboxPolicyService', () => {
     expect(ctx.sandboxPolicy.resolve()).toEqual({
       mode: 'workspace-write',
       workspaceRoot: '/fallback',
+      extraWritableRoots: [dshHomePath('.agent-presets')],
     })
   })
 
@@ -84,12 +86,14 @@ describe('SandboxPolicyService', () => {
     expect(ctx.sandboxPolicy.resolve({ session: first })).toEqual({
       mode: 'workspace-write',
       workspaceRoot: '/projects/first',
+      extraWritableRoots: [dshHomePath('.agent-presets')],
       sessionId: 'sess-first',
     })
     // 覆盖事件仍会写入日志，但锁定模式下不生效。
     expect(ctx.sandboxPolicy.resolve({ session: second })).toEqual({
       mode: 'workspace-write',
       workspaceRoot: '/projects/second',
+      extraWritableRoots: [dshHomePath('.agent-presets')],
       sessionId: 'sess-second',
     })
     expect(ctx.sandboxPolicy.overrideOf(first)).toBeUndefined()
@@ -97,6 +101,7 @@ describe('SandboxPolicyService', () => {
     expect(ctx.sandboxPolicy.resolve()).toEqual({
       mode: 'workspace-write',
       workspaceRoot: '/fallback',
+      extraWritableRoots: [dshHomePath('.agent-presets')],
     })
   })
 
@@ -116,6 +121,7 @@ describe('SandboxPolicyService', () => {
       expect(ctx.sandboxPolicy.resolve({ session: session('sess-symlink-parent', cwd) })).toEqual({
         mode: 'workspace-write',
         workspaceRoot: cwd,
+        extraWritableRoots: [dshHomePath('.agent-presets')],
         sessionId: 'sess-symlink-parent',
       })
     } finally {
@@ -130,6 +136,7 @@ describe('SandboxPolicyService', () => {
     expect(ctx.sandboxPolicy.resolve({ session: active, mode: 'danger-full-access' })).toEqual({
       mode: 'workspace-write',
       workspaceRoot: '/projects/approved',
+      extraWritableRoots: [dshHomePath('.agent-presets')],
       sessionId: 'sess-approved',
     })
   })

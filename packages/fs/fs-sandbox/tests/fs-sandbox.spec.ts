@@ -302,3 +302,68 @@ describe('FsError identity', () => {
     expect((error as FsError).code).toBe('FS_SANDBOX_DENIED')
   })
 })
+
+describe('the preset directory (readable content, writable through the extra root)', () => {
+  let home: string
+  let presets: string
+
+  beforeEach(async ({ onTestFinished }) => {
+    home = join(base, 'home-preset')
+    presets = join(home, '.agent-presets')
+    await mkdir(join(presets, 'assistant'), { recursive: true })
+    await writeFile(join(presets, 'assistant', 'preset.yml'), 'name: 助理\n')
+    await mkdir(join(home, 'storages'), { recursive: true })
+    await writeFile(join(home, 'storages', 'store.json'), '{}')
+    const previous = process.env.DSH_HOME
+    process.env.DSH_HOME = home
+    // Guards resolve the home at construction: set it before booting.
+    await boot('workspace-write')
+    onTestFinished(() => {
+      if (previous === undefined) delete process.env.DSH_HOME
+      else process.env.DSH_HOME = previous
+    })
+  })
+
+  /** The policy the resolver hands out: workspace + the preset extra root. */
+  const policy = () => ({
+    mode: 'workspace-write' as const,
+    workspaceRoot: workspace,
+    extraWritableRoots: [presets],
+  })
+
+  it('reads a preset file without any extra argument (it is not guarded)', async () => {
+    const file = await target(join(presets, 'assistant', 'preset.yml'))
+    expect(await fs.readText(file)).toBe('name: 助理\n')
+    expect((await fs.listDir(await target(presets)).catch(() => []))).toBeDefined()
+  })
+
+  it('writes and edits under the preset directory (it is an extra writable root)', async () => {
+    const created = await target(join(presets, 'assistant', 'SKILL.md'))
+    await fs.writeText(created, '# skill', undefined, undefined, policy())
+    expect(await readFile(join(presets, 'assistant', 'SKILL.md'), 'utf8')).toBe('# skill')
+    const edited = await fs.editText(
+      await target(join(presets, 'assistant', 'preset.yml')),
+      { oldString: 'name: 助理', newString: 'name: 创造', replaceAll: false },
+      undefined,
+      undefined,
+      policy(),
+    )
+    expect(edited.after).toBe('name: 创造\n')
+  })
+
+  it('still refuses storages and the credential files', async () => {
+    const store = await target(join(home, 'storages', 'store.json'))
+    await expect(fs.readText(store)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    const settings = await target(join(home, 'settings.yaml'))
+    await expect(fs.readText(settings)).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    await expect(fs.writeText(await target(join(home, 'storages', 'new.json')), 'x', undefined, undefined, policy()))
+      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+  })
+
+  it('a policy WITHOUT the extra root cannot write the preset directory', async () => {
+    const created = await target(join(presets, 'assistant', 'blocked.md'))
+    await expect(fs.writeText(created, '# x', undefined, undefined, { mode: 'workspace-write', workspaceRoot: workspace }))
+      .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+    expect(existsSync(join(presets, 'assistant', 'blocked.md'))).toBe(false)
+  })
+})

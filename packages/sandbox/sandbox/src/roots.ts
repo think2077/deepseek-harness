@@ -44,26 +44,33 @@ export function canonicalPath(path: string): string {
 /**
  * The roots one confined execution may WRITE under — the mode's meaning as a
  * canonical, deduplicated allow-list. `read-only` allows nothing;
- * `workspace-write` allows the policy's workspace root, the host `/tmp`, and
- * the per-user platform temp dir (`os.tmpdir()` — the real temp area for
- * mkstemp-family tools; omitting it would deny what the mode promises).
+ * `workspace-write` allows the policy's workspace root, the host `/tmp`, the
+ * per-user platform temp dir (`os.tmpdir()` — the real temp area for
+ * mkstemp-family tools; omitting it would deny what the mode promises), and
+ * any deployment-designated extra roots ({@link SandboxExecutionPolicy.extraWritableRoots},
+ * e.g. the digital-employee preset directory the agent is meant to edit).
  * @param policy - the file-effect policy to derive the allow-list from.
  * @returns the canonical writable roots; empty exactly under `read-only`.
  */
 export function writableRoots(policy: SandboxExecutionPolicy): string[] {
   if (policy.mode !== 'workspace-write') return []
-  return [...new Set([policy.workspaceRoot, '/tmp', tmpdir()].map(canonicalPath))]
+  return [...new Set([policy.workspaceRoot, '/tmp', tmpdir(), ...policy.extraWritableRoots ?? []].map(canonicalPath))]
 }
 
 /**
  * The host-data paths under the Harness home that a session may neither READ
  * nor WRITE, in either direction, under every mode. They are the deployment's
  * secrets and cross-session state: `sessions` (every other conversation's
- * transcript), `.agent-presets` (the configured digital employees),
- * `storages` (tool state), plus the credential files at the home's root.
- * Everything else under the home — `workspaces`, `projects`, `attachments`,
- * `skills`, `cache` — stays reachable, so the fence subtracts exactly the
- * paths that must never cross into a session.
+ * transcript), `storages` (tool state), plus the credential files at the
+ * home's root.
+ *
+ * `.agent-presets` is deliberately NOT here: editing the digital employees is
+ * a supported task, so that directory is READABLE and writable through
+ * {@link SandboxExecutionPolicy.extraWritableRoots} (the policy owner adds it
+ * to the writable allow-list). Everything else under the home — `workspaces`,
+ * `projects`, `attachments`, `.agent-presets`, `skills`, `cache` — stays
+ * reachable, so the fence subtracts exactly the paths that must never cross
+ * into a session.
  *
  * One definition feeds all three enforcement dialects: the in-process filesystem
  * fence (`@deepseek-ai/dsh-fs-sandbox`, which covers the `read`/`list` tools),
@@ -78,7 +85,7 @@ export interface GuardedPaths {
 }
 
 /** The Harness-home child directories denied to sessions (canonicalized by {@link guardedPaths}). */
-export const GUARDED_HOME_DIRS = ['sessions', '.agent-presets', 'storages'] as const
+export const GUARDED_HOME_DIRS = ['sessions', 'storages'] as const
 
 /** The Harness-home child files denied to sessions (canonicalized by {@link guardedPaths}). */
 export const GUARDED_HOME_FILES = ['settings.yaml', '.credentials.yaml', 'feishu.env'] as const
