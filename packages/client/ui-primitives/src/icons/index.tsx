@@ -992,6 +992,18 @@ export const SHIELD_OUTLINE_PATH = 'M8.20554 0.899994L14.7901 3.36857V7.01026C14
 /** Stroke width of {@link SHIELD_OUTLINE_PATH}. */
 export const SHIELD_OUTLINE_STROKE = '1.31831'
 
+/**
+ * Sign-out glyph for the sidebar-foot identity row: an open door frame with
+ * the arrow leaving to the right, drawn at 1.2px on the 16 grid.
+ */
+export const IconLogoutOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6.4 2.4H3.6C2.99 2.4 2.5 2.89 2.5 3.5V12.5C2.5 13.11 2.99 13.6 3.6 13.6H6.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M10.9 4.9L13.9 8L10.9 11.1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13.7 8H6.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+)
+
 /** Permission row glyph of the composer menu: the shield contour alone, without a mode mark. */
 export const IconShieldOutline16 = ({ size = 16, className }: IconProps) => (
   <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

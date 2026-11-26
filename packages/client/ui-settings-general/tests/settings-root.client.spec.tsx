@@ -396,3 +396,50 @@ describe('SettingsPanel navigation', () => {
     expect(listeners.size).toBe(0)
   })
 })
+
+describe('SettingsRoot personal identity row', () => {
+  // Personal (multi-user) deployments are the only ones with an identity row;
+  // the host advertises the employee name on the index page.
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, '__DSH_PERSONAL_WORKSPACE__')
+    Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_NAME__')
+  })
+
+  function mountPersonal({ wide = true }: { wide?: boolean } = {}) {
+    Reflect.set(globalThis, '__DSH_PERSONAL_WORKSPACE__', true)
+    Reflect.set(globalThis, '__DSH_WEB_USER_NAME__', '美玉')
+    return mount({ wide, dictionary: zh })
+  }
+
+  it('stands Settings and Sign-out beside the name instead of a menu', () => {
+    mountPersonal()
+    const identity = screen.getByRole('button', { name: '美玉' })
+    expect(identity.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(identity.textContent).toContain('美玉')
+    // No popover at all: both actions are standing, clickable icons.
+    expect(screen.queryByRole('menu')).toBeNull()
+    const gear = screen.getByRole('button', { name: '设置' })
+    expect(gear.querySelector('svg')).toBeTruthy()
+    fireEvent.click(gear)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('posts the host logout route from the sign-out glyph', () => {
+    mountPersonal()
+    const signOut = screen.getByRole('button', { name: '登出' })
+    expect(signOut.querySelector('svg')).toBeTruthy()
+    const form = signOut.closest('form')
+    expect(form?.getAttribute('method')).toBe('post')
+    expect(form?.getAttribute('action')).toBe('/auth/logout')
+  })
+
+  it('keeps the avatar as the Settings seat in the collapsed rail, with sign-out below', () => {
+    mountPersonal({ wide: false })
+    const identity = screen.getByRole('button', { name: '美玉' })
+    expect(screen.queryByRole('button', { name: '设置' })).toBeNull()
+    const signOut = screen.getByRole('button', { name: '登出' })
+    expect(signOut.closest('form')?.getAttribute('action')).toBe('/auth/logout')
+    fireEvent.click(identity)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+})

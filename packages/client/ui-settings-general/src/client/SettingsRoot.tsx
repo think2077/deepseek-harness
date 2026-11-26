@@ -16,7 +16,7 @@ import clsx from 'clsx'
 import {
   ConnectionIndicator,
   IconAgentPresetOutline16, IconArchiveOutline20, IconCloseOutline16, IconDataOutline16,
-  IconPersonalizationOutline16, IconSettingsOutline16,
+  IconLogoutOutline16, IconPersonalizationOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
@@ -133,65 +133,55 @@ type AccountRowProps = {
 }
 
 /**
- * Sidebar-foot identity row: the employee name opens a menu whose Settings
- * item raises the very panel the gear below opens, and whose Sign-out item
- * posts the host's logout route. Menu state is local viewing state; dismissal
- * is an outside pointer press or Escape.
+ * Sidebar-foot identity row: the avatar + employee name, with Settings and
+ * Sign-out standing as two icon buttons at its right edge. Settings raises
+ * the very panel the gear below opens; Sign-out posts the host's logout
+ * route. The collapsed rail holds one column — the avatar opens Settings
+ * (its gear would repeat the avatar's own action), the sign-out glyph sits
+ * underneath.
  */
 function AccountRow({ account, wide, onOpenSettings, triggerRef, t, children }: AccountRowProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const row = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!menuOpen) return
-    const onPointerDown = (e: MouseEvent) => {
-      if (e.target instanceof Node && row.current?.contains(e.target) === true) return
-      setMenuOpen(false)
-    }
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [menuOpen])
   const name = account.name === '' ? t('account.anonymous') : account.name
   const initial = Array.from(name)[0] ?? '·'
   return (
-    <div ref={row} className={clsx(css.accountRow, !wide && css.accountRailRow)}>
-      {menuOpen && (
-        <div className={css.accountMenu} role="menu" aria-label={t('account.menu')}>
-          <button
-            type="button"
-            role="menuitem"
-            className={css.accountItem}
-            onClick={() => {
-              setMenuOpen(false)
-              onOpenSettings()
-            }}
-          >
-            {t('account.settings')}
-          </button>
-          <form method="post" action="/auth/logout">
-            <button type="submit" role="menuitem" className={css.accountItem}>
-              {t('account.signOut')}
-            </button>
-          </form>
-        </div>
-      )}
+    <div className={clsx(css.accountRow, !wide && css.accountRailRow)}>
       <button
         ref={triggerRef}
         type="button"
         className={clsx(css.trigger, !wide && css.rail)}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
+        aria-haspopup="dialog"
         aria-label={name}
-        onClick={() => { setMenuOpen(open => !open) }}
+        onClick={onOpenSettings}
       >
         <span className={css.accountAvatar} aria-hidden="true">{initial}</span>
         {wide && <span className={css.accountName}>{name}</span>}
       </button>
       {children}
+      <div className={css.accountActions}>
+        {/* The rail's avatar already opens Settings, so its gear would be a
+            second control for one action; only the wide row carries it. */}
+        {wide && (
+          <button
+            type="button"
+            className={css.accountAction}
+            aria-label={t('account.settings')}
+            title={t('account.settings')}
+            onClick={onOpenSettings}
+          >
+            <IconSettingsOutline16 size={16} />
+          </button>
+        )}
+        <form method="post" action="/auth/logout" className={css.accountActionForm}>
+          <button
+            type="submit"
+            className={css.accountAction}
+            aria-label={t('account.signOut')}
+            title={t('account.signOut')}
+          >
+            <IconLogoutOutline16 size={16} />
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
@@ -315,8 +305,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
 
   return (
     <>
-      {/* Personal deployments fold Settings into the identity menu, so the
-          foot keeps one seat: a separate gear would only repeat that item. */}
+      {/* Personal deployments seat the identity row in the foot with Settings
+          and Sign-out as its own trailing icons; single-user deployments keep
+          the standalone gear seat below. */}
       {account !== undefined ? (
         <AccountRow
           account={account}
