@@ -15,8 +15,19 @@ import { en, zh, type CockpitLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' { interface LocaleNamespaceMap { managementCockpit: CockpitLocaleKey } }
 export const inject = ['slots', 'locale', 'remote', 'remote.project', 'remote.agentPresets']
+/** Only the administrator sees the cockpit; a deployment without web accounts has no administrator role. */
+function mayViewCockpit(): boolean {
+  // `__DSH_PERSONAL_WORKSPACE__` marks the per-account Workspace and is true
+  // for every web sign-in, so the role itself decides.
+  const admin: unknown = Reflect.get(globalThis, '__DSH_WEB_USER_ADMIN__')
+  return admin === undefined || admin === true
+}
+
 /** Register the page and reconnecting read-only project feed. */
 export function apply(ctx: Context): void {
+  // The cockpit summarizes the whole deployment, so its panel and menu entry
+  // stay off the surface for ordinary employees rather than rendering empty.
+  if (!mayViewCockpit()) return
   const store = createSnapshotStore<CockpitState>({})
   const stream = ctx.remote.$stream<ProjectCatalog>({
     name: 'Management cockpit projects', open: signal => ctx.remote.project.follow(signal),

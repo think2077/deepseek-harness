@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Context } from '@deepseek-ai/cordis'
 import type { ProjectCatalog } from '@deepseek-ai/dsh-api-project-controller/types'
 import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-presets/types'
-import type {} from '../src/client/index.ts'
+import { apply } from '../src/client/index.ts'
 import { ManagementCockpit, type CockpitState, type ManagementCockpitProps } from '../src/client/ManagementCockpit.tsx'
 import { en, type CockpitLocaleKey } from '../src/client/locales.ts'
 
@@ -82,5 +83,16 @@ describe('management cockpit', () => {
     expect(screen.queryByText('Active projects')).toBeNull()
     expect(screen.queryByText('Running')).toBeNull()
     expect(screen.queryByText('Completed')).toBeNull()
+  })
+
+  it('registers no page or menu entry for a non-administrator', () => {
+    Reflect.set(globalThis, '__DSH_WEB_USER_ADMIN__', false)
+    try {
+      const inject = vi.fn()
+      apply({ slots: { inject } } as unknown as Context)
+      expect(inject).not.toHaveBeenCalled()
+    } finally {
+      Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_ADMIN__')
+    }
   })
 })
