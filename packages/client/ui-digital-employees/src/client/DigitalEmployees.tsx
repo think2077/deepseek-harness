@@ -13,6 +13,15 @@ import css from './DigitalEmployees.module.css'
 /** Shipped preset the "create / edit" entry starts: authoring happens in Creator mode. */
 const CREATOR_PRESET = 'cordis'
 
+/** Authoring follows the account role; a deployment without web accounts (local Workspace) has no administrator. */
+function mayAuthor(): boolean {
+  // `__DSH_PERSONAL_WORKSPACE__` is true for every web sign-in — it marks the
+  // per-account Workspace, not an unrestricted deployment — so the permission
+  // reads the injected role, and an absent role means no web accounts at all.
+  const admin: unknown = Reflect.get(globalThis, '__DSH_WEB_USER_ADMIN__')
+  return admin === undefined || admin === true
+}
+
 type Props = PropsRuntime<'main'> & PropsLocale<'digitalEmployees'> & {
   readRoster: () => Promise<AgentPresetRoster>
   readInventory: () => Promise<PluginInventorySnapshot>
@@ -65,6 +74,9 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
   const authored = roster?.presets
     .filter(row => row.trust === 'user')
     .map(row => ({ ...row, ...presetDisplayText(row, t) })) ?? []
+  // The entry stays visible for everyone so the permission reads at a glance:
+  // non-administrators see it greyed out rather than missing.
+  const authoring = mayAuthor()
   const detail = authored.find(row => row.id === selected)
   const composition = inventory?.agentPresets?.find(row => row.id === selected)
   const needle = query.trim().toLocaleLowerCase()
@@ -73,7 +85,7 @@ export function DigitalEmployees({ t, useSessions, useWorkspaces, readRoster, re
   return <main className={css.page}>
     <header className={css.header}>
       <div><h1>{t('nav')}</h1><p>{t('description')}</p></div>
-      <Button variant="primary" disabled={busy || roster === undefined} onClick={() => { launch(CREATOR_PRESET, t('createPrompt')) }}>
+      <Button variant="primary" disabled={busy || roster === undefined || !authoring} title={authoring ? undefined : t('createAdminOnly')} onClick={() => { launch(CREATOR_PRESET, t('createPrompt')) }}>
         <IconPlusOutline16 size={14} />{t('create')}
       </Button>
     </header>

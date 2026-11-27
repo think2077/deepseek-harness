@@ -53,13 +53,16 @@ export function Projects({ t, useProjects, save, archive, restore, enter, refres
     catch (reason) { setError(reason instanceof Error ? reason.message : t('error')) }
     finally { setBusy(false) }
   }
+  // Metadata actions stay visible so the permission is readable at a glance;
+  // a non-administrator sees them greyed out rather than missing.
+  const canManage = state.catalog?.canManage === true
   const rows = state.catalog?.projects.filter(project =>
     (project.status === 'archived') === archived && (stage === '' || stage === project.stage)
     && `${project.title} ${project.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) ?? []
   return <main className={css.page}>
     <header className={css.header}><div><h1>{t('nav')}</h1><p>{t('intro')}</p></div>
       <div className={css.actions}><Button variant="outline" disabled={busy} onClick={() => { void run(refresh) }}>{t('retry')}</Button>
-        {state.catalog?.canManage && <Button variant="primary" onClick={() => { setError(undefined); setDraft({ name: '', description: '', stage: 'engagement' }) }}>{t('create')}</Button>}</div>
+        <Button variant="primary" disabled={!canManage || busy} title={canManage ? undefined : t('adminOnly')} onClick={() => { setError(undefined); setDraft({ name: '', description: '', stage: 'engagement' }) }}>{t('create')}</Button></div>
     </header>
     <div className={css.toolbar}><Input aria-label={t('search')} placeholder={t('search')} value={query} onChange={(event) => { setQuery(event.target.value) }} />
       <select aria-label={t('stage')} value={stage} onChange={(event) => { setStage(event.target.value as ProjectStage | '') }}><option value="">{t('allStages')}</option>{STAGES.map(value => <option value={value} key={value}>{t(value)}</option>)}</select>
@@ -80,11 +83,11 @@ export function Projects({ t, useProjects, save, archive, restore, enter, refres
       <div className={css.rowTime}><span>{t('updated')}</span><time dateTime={project.updatedAt}>{updatedLabel(project.updatedAt)}</time></div>
       <div className={css.rowActions}>
         {project.status === 'active' && <Button size="sm" variant="primary" disabled={busy} onClick={() => { void run(() => enter(project.projectId)) }}>{t('enter')}</Button>}
-        {state.catalog?.canManage && <><Button size="sm" variant="outline" disabled={busy} onClick={() => { setError(undefined); setDraft({ id: project.projectId, name: project.title, description: project.description, stage: project.stage }) }}>{t('edit')}</Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => {
-            if (project.status === 'archived') void run(() => restore(project.projectId))
-            else { setError(undefined); setConfirm(project) }
-          }}>{t(project.status === 'archived' ? 'restore' : 'archive')}</Button></>}
+        <Button size="sm" variant="outline" disabled={busy || !canManage} title={canManage ? undefined : t('adminOnly')} onClick={() => { setError(undefined); setDraft({ id: project.projectId, name: project.title, description: project.description, stage: project.stage }) }}>{t('edit')}</Button>
+        <Button size="sm" variant="ghost" disabled={busy || !canManage} title={canManage ? undefined : t('adminOnly')} onClick={() => {
+          if (project.status === 'archived') void run(() => restore(project.projectId))
+          else { setError(undefined); setConfirm(project) }
+        }}>{t(project.status === 'archived' ? 'restore' : 'archive')}</Button>
       </div>
     </article>)}</div>}
     {draft !== undefined && <Modal open title={t(draft.id === undefined ? 'create' : 'edit')} closeLabel={t('close')} onClose={() => { if (!busy) setDraft(undefined) }}>

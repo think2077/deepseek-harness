@@ -267,13 +267,39 @@ describe('the new-session chip controller', () => {
 
     await controller.load()
 
-    // The chip names the session about to start, and nothing about it is
-    // decided yet — the default is the honest opening value.
+    // The chip lists what the digital-employee directory lists — locally
+    // authored presets — and keeps the effective default so the open session
+    // always has a name in the menu. Built-in modes other than the creator
+    // entry are deployment machinery, not choices.
     expect(controller.store.getSnapshot().current).toBe('standard')
     expect(controller.store.getSnapshot().options).toEqual([
       { id: 'standard', trust: 'system' },
-      { id: 'minimal', trust: 'system' },
     ])
+  })
+
+  it('lists the creator entry only for administrators', async () => {
+    const roster = [
+      { id: 'standard', trust: 'system' as const, isDefault: true },
+      { id: 'cordis', trust: 'system' as const, isDefault: false },
+      { id: 'solution-expert', trust: 'user' as const, isDefault: false },
+    ]
+    const controller = chip(roster, undefined)
+
+    Reflect.set(globalThis, '__DSH_WEB_USER_ADMIN__', false)
+    try {
+      await controller.load()
+      expect(controller.store.getSnapshot().options.map(option => option.id)).toEqual(['standard', 'solution-expert'])
+    } finally {
+      Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_ADMIN__')
+    }
+
+    Reflect.set(globalThis, '__DSH_WEB_USER_ADMIN__', true)
+    try {
+      await controller.load()
+      expect(controller.store.getSnapshot().options.map(option => option.id)).toEqual(['standard', 'cordis', 'solution-expert'])
+    } finally {
+      Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_ADMIN__')
+    }
   })
 
   it('takes picker visibility from the newest Host roster truth', async () => {

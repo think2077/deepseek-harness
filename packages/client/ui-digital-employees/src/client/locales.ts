@@ -18,6 +18,7 @@ export const en = {
 
   nav: 'Digital employees', description: 'Reusable work capabilities for the organization.',
   create: 'Create / edit digital employee',
+  createAdminOnly: 'Only administrators can create or edit digital employees.',
   // Starting draft for the Creator session: the fields a new or revised
   // employee has to answer before any preset file is written.
   createPrompt: [
@@ -53,6 +54,7 @@ export const zh: Record<DigitalEmployeesLocaleKey, string> = {
 
   nav: '数字员工', description: '组织可复用的工作能力。',
   create: '创建/编辑数字员工',
+  createAdminOnly: '仅管理员可创建或编辑数字员工。',
   createPrompt: [
     '请帮我创建一个数字员工。',
     '名称：',

@@ -8,7 +8,7 @@ export const en = {
   archiveTitle: 'Archive project', archiveHint: 'Project files and conversations will be retained. Restore the project before starting new work.',
   engagement: 'Engagement', discovery: 'Needs research', proposal: 'Proposal review', approval: 'Approval and procurement',
   contracting: 'Contract negotiation and signing', preparation: 'Preparation', pilot: 'Pilot operation', acceptance: 'Acceptance and handover', operation: 'Operation',
-  creator: 'Created by', updated: 'Updated',
+  creator: 'Created by', updated: 'Updated', adminOnly: 'Only administrators can create, edit, or archive projects.',
   noDescription: 'No description', unknownCreator: 'Unknown creator',
 }
 export type ProjectLocaleKey = keyof typeof en
@@ -22,6 +22,6 @@ export const zh: Record<ProjectLocaleKey, string> = {
   archiveTitle: '归档项目', archiveHint: '项目文件和历史会话会保留。恢复项目后才能开始新的工作。',
   engagement: '项目接洽', discovery: '需求调研', proposal: '方案论证', approval: '立项与采购推进',
   contracting: '合同洽谈与签署', preparation: '建设筹备', pilot: '试点运行', acceptance: '验收交付', operation: '正式运营',
-  creator: '创建人', updated: '更新于',
+  creator: '创建人', updated: '更新于', adminOnly: '仅管理员可新建、编辑或归档项目。',
   noDescription: '暂无描述', unknownCreator: '未知创建人',
 }

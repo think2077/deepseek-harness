@@ -41,6 +41,8 @@ it('lists only authored employees, searches them, and inspects details without s
   expect(screen.queryByText('Creator mode')).toBeNull()
   expect((screen.getAllByRole('button', { name: en.start })[0] as HTMLButtonElement).disabled).toBe(false)
   expect((screen.getAllByRole('button', { name: en.start })[2] as HTMLButtonElement).disabled).toBe(true)
+  // No web account in this fixture: a local Workspace has no administrator.
+  expect(screen.getByRole('button', { name: en.create })).toHaveProperty('disabled', false)
   fireEvent.click(screen.getByRole('button', { name: `${en.details}: Sales assistant` }))
   expect(await screen.findByText(en.persona)).toBeTruthy()
   expect(screen.getByText(/You are a sales assistant/)).toBeTruthy()
@@ -55,13 +57,30 @@ it('lists only authored employees, searches them, and inspects details without s
   expect(zh.nav).toBe('数字员工')
 })
 
+it('greys out the authoring entry for a non-administrator', async () => {
+  Reflect.set(globalThis, '__DSH_WEB_USER_ADMIN__', false)
+  try {
+    mount()
+    await screen.findByText('Sales assistant')
+    expect(screen.getByRole('button', { name: en.create })).toHaveProperty('disabled', true)
+  } finally {
+    Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_ADMIN__')
+  }
+})
+
 it('starts the authoring entry inside Creator mode, with the employee template as its first draft', async () => {
-  const app = mount({ current: 'existing' })
-  await screen.findByText('Sales assistant')
-  fireEvent.click(screen.getByRole('button', { name: en.create }))
-  await waitFor(() => {
-    expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'cordis', en.createPrompt)
-  })
+  // Authoring is an administrator capability on a shared deployment.
+  Reflect.set(globalThis, '__DSH_WEB_USER_ADMIN__', true)
+  try {
+    const app = mount({ current: 'existing' })
+    await screen.findByText('Sales assistant')
+    fireEvent.click(screen.getByRole('button', { name: en.create }))
+    await waitFor(() => {
+      expect(app.startAssistant).toHaveBeenCalledWith('project-a', 'cordis', en.createPrompt)
+    })
+  } finally {
+    Reflect.deleteProperty(globalThis, '__DSH_WEB_USER_ADMIN__')
+  }
   expect(zh.createPrompt.split('\n').slice(0, 1)).toEqual(['请帮我创建一个数字员工。'])
   expect(zh.createPrompt).toContain('工作边界与需人工确认的事项：')
 })

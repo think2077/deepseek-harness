@@ -56,7 +56,9 @@ describe('project catalog list', () => {
     const { createdByName: _absent, ...anonymous } = project
     renderCatalog({ projects: [anonymous], canManage: false })
     expect(screen.getByRole('listitem').textContent).toContain(en.unknownCreator)
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    // Metadata actions stay visible so the permission reads at a glance; a
+    // non-administrator sees them greyed out rather than missing.
+    expect(screen.getByRole('button', { name: 'Edit' })).toHaveProperty('disabled', true)
   })
 
   it('marks archived projects separately from the active pool', () => {

@@ -42,6 +42,33 @@ const INITIAL: AgentPresetSeatState = {
   showPicker: false, options: [], current: '', error: null, busy: false, introduce: false,
 }
 
+/** Shipped preset that authors presets: the creator entry belongs to administrators. */
+const CREATOR_PRESET = 'cordis'
+
+/** Authoring follows the account role; a deployment without web accounts (local Workspace) has no administrator. */
+function mayAuthor(): boolean {
+  // `__DSH_PERSONAL_WORKSPACE__` is true for every web sign-in — it marks the
+  // per-account Workspace, not an unrestricted deployment — so the permission
+  // reads the injected role, and an absent role means no web accounts at all.
+  const admin: unknown = Reflect.get(globalThis, '__DSH_WEB_USER_ADMIN__')
+  return admin === undefined || admin === true
+}
+
+/**
+ * The chip lists what the digital-employee directory lists — locally authored
+ * presets — plus the creator entry for administrators. The effective default
+ * stays even when it ships with the deployment, so the menu can always name
+ * the composition the coming session is about to start from.
+ */
+function seatPresets<T extends { id: string; trust: 'system' | 'user'; isDefault: boolean }>(
+  presets: readonly T[],
+  authoring: boolean,
+): readonly T[] {
+  return presets.filter(preset => preset.trust === 'user'
+    || preset.isDefault
+    || (preset.id === CREATOR_PRESET && authoring))
+}
+
 /** Stages the next session's preset and applies it when one appears. */
 export class AgentPresetSeatController {
   /** Chip snapshot the renderer subscribes to. */
@@ -90,7 +117,7 @@ export class AgentPresetSeatController {
     const session = this.currentSession()
     this.set({
       showPicker: modeSelectionEnabled,
-      options: presetOptions(presets),
+      options: presetOptions(seatPresets(presets, mayAuthor())),
       // Staged pick first, then the composition the current session
       // already carries, then the Host-effective default. The middle term is
       // what keeps a late-landing load from regressing the display after
